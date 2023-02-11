@@ -3,4 +3,14 @@
 #include "transport_catalogue.h"
 #include <istream>
 
-TransportCatalogue CreateTransportCatalogue(std::istream& input);
+
+namespace readinput {
+transport::TransportCatalogue CreateTransportCatalogue(std::istream& input);
+
+namespace detail {
+transport::RawBus ExtractStops(std::istream& input);
+transport::Stop BuildStop(std::istream& input);
+
+}
+
+}

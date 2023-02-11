@@ -5,7 +5,7 @@
 using namespace std::literals;
 using namespace std::string_view_literals;
 
-RawBus ExtractStops(std::istream& input) {
+transport::RawBus readinput::detail::ExtractStops(std::istream& input) {
     std::string busname;
     getline(input, busname, ':');
     input.get();
@@ -29,18 +29,37 @@ RawBus ExtractStops(std::istream& input) {
 
     bool is_cycle = true ? separator == '>' : false;
 
-    RawBus raw_bus{std::move(busname), std::move(stops), is_cycle};
+    transport::RawBus raw_bus{std::move(busname), std::move(stops), is_cycle};
 
     return raw_bus;
 }
 
-TransportCatalogue CreateTransportCatalogue(std::istream& input) {
-    TransportCatalogue transport_catalogue;
+transport::Stop readinput::detail::BuildStop(std::istream& input) {
+    transport::Stop stop;
+
+    std::string raw;
+    getline(input, raw);
+
+    size_t colon = raw.find_first_of(':');
+    std::string stopname = {raw.begin(), raw.begin() + colon};
+    
+    stop.stopname = stopname;
+
+    std::string::size_type sz;
+    double lat = std::stod(&raw[colon + 2], &sz);
+    double lng = std::stod(&raw[colon + sz + 3]);
+    stop.location = {lat, lng};
+
+    return stop;
+}
+
+transport::TransportCatalogue readinput::CreateTransportCatalogue(std::istream& input) {
+    transport::TransportCatalogue transport_catalogue;
 
     size_t n;
     input >> n;
 
-    std::vector<RawBus> buffer;
+    std::vector<transport::RawBus> buffer;
 
     for (size_t i = 0; i < n; ++i) {
         std::string query;
@@ -48,22 +67,9 @@ TransportCatalogue CreateTransportCatalogue(std::istream& input) {
         input.get();
 
         if (query == "Bus"sv) {
-            buffer.push_back(ExtractStops(input));
+            buffer.push_back(detail::ExtractStops(input));
         } else {
-            std::string raw;
-            getline(input, raw);
-
-            size_t colon = raw.find_first_of(':');
-            std::string stopname = {raw.begin(), raw.begin() + colon};
-            
-            Stop stop;
-            stop.stopname = stopname;
-
-            std::string::size_type sz;
-            double lat = std::stod(&raw[colon + 2], &sz);
-            double lng = std::stod(&raw[colon + sz + 3]);
-            stop.location = {lat, lng};
-
+            transport::Stop stop = detail::BuildStop(input);
             transport_catalogue.AddStop(stop);
         }
     }

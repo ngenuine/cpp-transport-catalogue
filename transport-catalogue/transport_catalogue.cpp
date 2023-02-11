@@ -1,77 +1,73 @@
 #include "transport_catalogue.h"
+// #include "test_framework.h"
 #include <iomanip>
 #include <iostream>
 #include <unordered_set>
+#include <set>
 
-std::ostream& operator<<(std::ostream& out, const BusInfo bus_info) {
+namespace transport {
+
+std::ostream& operator<<(std::ostream& out, const std::unordered_set<Bus*, BusPointerHasher>& bus_set) {
+    std::set<std::string_view> eh_zrya;
+    
+    for (auto bus = bus_set.begin(); bus != bus_set.end(); ++bus) {
+        eh_zrya.insert((*bus)->busname);
+    }
+
+    auto busname = eh_zrya.begin();
+    for (size_t cnt = 0; cnt < eh_zrya.size() - 1; ++cnt) {
+        out << *(busname++) << ' ';
+    }
+
+    out << *busname;
+
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const BusInfo& bus_info) {
 
     if (bus_info.number_of_stops == 0) {
-        out << "Bus " << bus_info.busname << ": not found";
+        out << "Bus "sv << bus_info.busname << ": not found"sv;
     } else {
-        out << "Bus " << bus_info.busname << ": "
-            << bus_info.number_of_stops << " stops on route, "
-            << bus_info.number_of_unique_stops << " unique stops, "
-            << std::setprecision(6) << bus_info.route_length << " route length";
+        out << "Bus "sv << bus_info.busname << ": "sv
+            << bus_info.number_of_stops << " stops on route, "sv
+            << bus_info.number_of_unique_stops << " unique stops, "sv
+            << std::setprecision(6) << bus_info.route_length << " route length"sv;
     }
 
     return out;
 }
 
-// RawBus::RawBus() = default;
+std::ostream& operator<<(std::ostream& out, const StopInfo& stop_info) {
 
-// RawBus::~RawBus() = default;
+    if (!stop_info.is_exist) {
+        out << "Stop "sv << stop_info.stopname << ": not found"sv;
+    } else {
+        if (stop_info.buses_across_stop->size() == 0) {
+            out << "Stop "sv << stop_info.stopname << ": no buses"sv;
+        } else {
+            out << "Stop "sv
+                << stop_info.stopname
+                << ": buses "sv
+                << *(stop_info.buses_across_stop);
+        }
+    }
 
-// RawBus::RawBus(std::string& raw_name, std::vector<std::string>& raw_stops, bool raw_is_cycle) {
-//     busname = std::move(raw_name);
-//     stops = std::move(raw_stops);
-//     is_cycle = raw_is_cycle;
-// }
-
-// RawBus::RawBus(const RawBus& other) {
-//     busname = other.busname;
-//     stops = other.stops;
-//     is_cycle = other.is_cycle;
-// }
-
-// RawBus& RawBus::operator=(const RawBus& rhs) {
-    
-//     if (this != &rhs) {
-//         auto rhs_copy(rhs);
-//         swap(rhs_copy);
-//     }
-
-//     return *this;
-// }
-
-// RawBus::RawBus(RawBus&& other) {
-//     swap(other);
-// }
-
-// RawBus& RawBus::operator=(RawBus&& rhs) {
-//     swap(rhs);
-//     return *this;
-// }
-
-// void RawBus::swap(RawBus& other) noexcept {
-//     std::swap(busname, other.busname);
-//     std::swap(stops, other.stops);
-//     std::swap(is_cycle, other.is_cycle);
-// }
+    return out;
+}
 
 void TransportCatalogue::AddStop(Stop& stop) {
     
     stops_.push_back({std::move(stop.stopname), stop.location});
     stopname_to_stop_[stops_.back().stopname] = &stops_.back();
-}
-
-const Stop* TransportCatalogue::FindStop(std::string_view stopname) const {
-    return stopname_to_stop_.at(stopname);
+    
+    stop_info_[stops_.back().stopname];
 }
 
 void TransportCatalogue::AddBus(RawBus& raw_bus) {
     
     Bus bus;
-    bus.busname = std::move(raw_bus.busname);
+    bus.busname = raw_bus.busname;
     bus.is_cycle = raw_bus.is_cycle;
     bus.stops.reserve(raw_bus.stops.size());
     
@@ -81,6 +77,16 @@ void TransportCatalogue::AddBus(RawBus& raw_bus) {
 
     buses_.push_back(bus);
     busname_to_bus_[buses_.back().busname] = &buses_.back();
+
+    MapStopToBus(&buses_.back());
+}
+
+const Stop* TransportCatalogue::FindStop(std::string_view stopname) const {
+    if (stopname_to_stop_.count(stopname) == 1) {
+        return stopname_to_stop_.at(stopname);
+    }
+
+    return nullptr;
 }
 
 const Bus* TransportCatalogue::FindBus(std::string_view busname) const {
@@ -123,6 +129,18 @@ const BusInfo TransportCatalogue::GetBusInfo(std::string_view busname) {
     return bus_info_.at(existing_bus->busname);
 }
 
+const StopInfo TransportCatalogue::GetStopInfo(std::string& stopname) {
+    
+    if (stop_info_.count(stopname) == 0) {
+        StopInfo not_found_stop;
+        not_found_stop.stopname = std::move(stopname);
+        not_found_stop.is_exist = false;
+        return not_found_stop;
+    }
+
+    return {stopname, &stop_info_.at(stopname), true}; // move(stopname) тут не надо, а то stop_info_.at сломается
+}
+
 double TransportCatalogue::GetBusLength(const Bus* bus) {
 
     double one_way_route_length = 0.0;
@@ -150,3 +168,67 @@ double TransportCatalogue::GetBusLength(const Bus* bus) {
 
     return one_way_route_length * 2;
 }
+
+void TransportCatalogue::MapStopToBus(Bus* bus) {
+    for (const Stop* stop : bus->stops) {
+        stop_info_[stop->stopname].insert(bus);
+    }
+}
+} // namespace transport
+
+namespace tests {
+
+void input::ReadInput() {
+    
+}
+
+void AddingStop() {
+    
+}
+
+void AddingBus() {
+    
+}
+
+void FindingStop() {
+    
+}
+
+void FindingBus() {
+    
+}
+
+void GettingBusLength() {
+    
+}
+
+void GettingBusInfo() {
+    
+}
+
+void output::WriteOutput() {
+
+}
+
+// Точки входа в тестирование
+void RunInputTests() {
+    using input::ReadInput;
+    RUN_TEST(ReadInput);
+}
+
+void RunTransportCatalogueTests() {
+    RUN_TEST(AddingStop);
+    RUN_TEST(AddingBus);
+    RUN_TEST(FindingStop);
+    RUN_TEST(FindingBus);
+    RUN_TEST(GettingBusLength);
+    RUN_TEST(GettingBusInfo);
+
+}
+
+void RunOutputTests() {
+    using output::WriteOutput;
+    RUN_TEST(WriteOutput);
+}
+
+} // namespace tests

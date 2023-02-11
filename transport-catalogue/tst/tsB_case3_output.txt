@@ -1,0 +1,6 @@
+Bus 2 5 6: 6 stops on route, 5 unique stops, 4371.02 route length
+Bus 7   50: 5 stops on route, 3 unique stops, 20939.5 route length
+Bus 751: not found
+Stop Samara: not found
+Stop Prazh   skaya: no buses
+Stop Biryulyovo Zapadnoye: buses 2 5 6 828

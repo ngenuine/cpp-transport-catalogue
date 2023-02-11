@@ -1,28 +1,35 @@
-// напишите решение с нуля
-// код сохраните в свой git-репозиторий
-
 #include "transport_catalogue.h"
 #include "input_reader.h"
 #include "stat_reader.h"
+// #include "test_framework.h"
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <string>
 
 using namespace std;
 
 int main() {
-    
-    TransportCatalogue tc = CreateTransportCatalogue(cin);
+    // tests::RunInputTests();
+    // tests::RunTransportCatalogueTests();
+    // tests::RunOutputTests();
+
+    transport::TransportCatalogue tc = readinput::CreateTransportCatalogue(cin);
 
     size_t n;
     cin >> n;
-    string _;
+    cin.get();
+    string query;
     string busname;
+    string stopname;
 
     for (size_t i = 0; i < n; ++i) {
-        getline(cin, _, ' ');
-        getline(cin, busname);
-        cout << tc.GetBusInfo(busname) << endl;
+        getline(cin, query, ' ');
+        if (query == "Bus"sv) {
+            getline(cin, busname);
+            cout << tc.GetBusInfo(busname) << endl;
+        } else {
+            getline(cin, stopname);
+            cout << tc.GetStopInfo(stopname) << endl;
+        }
     }
 }
