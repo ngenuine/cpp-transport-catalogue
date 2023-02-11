@@ -28,7 +28,7 @@ int main() {
     size_t n;
     input >> n;
     input.get();
-    string query;
+    string query; // перенести поближе?
     string busname;
     string stopname;
 

@@ -7,13 +7,25 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
+#include <set>
 #include <algorithm>
+#include <optional>
 
 using namespace std::literals;
 using namespace std::string_view_literals;
 
 namespace transport {
+
+struct Neighbours {
+    std::string from = ""s;
+    std::string to = ""s;
+    int curved = 0;
+};
+
+struct Distance {
+    double straight = 0.0;
+    int curved = 0;
+};
 
 struct Stop {
     // stopname строка, потому что много откуда сюда будут смотреть вьюхи
@@ -36,22 +48,16 @@ struct Bus {
     std::vector<Stop*> stops;
 };
 
-struct PairStopPointersHasher {
-    size_t operator() (const std::pair<Stop*, Stop*> from_to) const {
+struct StopHasher {
+    size_t operator() (std::pair<const Stop*, const Stop*> from_to) const {
         return pt_hasher_(from_to.first) + pt_hasher_(from_to.second);
     }
 
-private:
-    std::hash<Stop*> pt_hasher_{};
-};
-
-struct BusPointerHasher {
-    size_t operator() (Bus* bus) const {
-        return pt_hasher_(bus);
+    size_t operator() (const Stop* stop) const {
+        return pt_hasher_(stop);
     }
-
 private:
-    std::hash<Bus*> pt_hasher_{};
+    std::hash<const Stop*> pt_hasher_{};
 };
 
 struct BusInfo {
@@ -60,18 +66,20 @@ struct BusInfo {
     std::string_view busname = ""sv;
     int number_of_stops = 0;
     int number_of_unique_stops = 0;
-    double route_length = 0.0;
+    double bus_straight_length = 0.0;
+    int bus_curved_length = 0;
+    double curvature = 0.0;
 };
 
 struct StopInfo {
     std::string stopname = ""s;
-    std::unordered_set<Bus*, BusPointerHasher>* buses_across_stop;
+    std::set<std::string_view>* buses_across_stop;
     bool is_exist = false;
 };
 
-std::ostream& operator<<(std::ostream& out, const BusInfo& bus_info);
-std::ostream& operator<<(std::ostream& out, const std::unordered_set<Bus*, BusPointerHasher>& bus_set);
-std::ostream& operator<<(std::ostream& out, const StopInfo& stop_info);
+std::ostream& operator<<(std::ostream& out, const transport::BusInfo& bus_info);
+std::ostream& operator<<(std::ostream& out, const std::set<std::string_view>& bus_set);
+std::ostream& operator<<(std::ostream& out, const transport::StopInfo& stop_info);
 
 class TransportCatalogue {
 public:
@@ -81,17 +89,19 @@ public:
     const Bus* FindBus(std::string_view busname) const;
     const BusInfo GetBusInfo(std::string_view busname);
     const StopInfo GetStopInfo(std::string& stopname);
+    void SetCurvedDistance(Neighbours& neighbours);
+    const Distance& GetFromToDistance(const Stop* from, const Stop* to);
 
 private:
     std::deque<Stop> stops_;
     std::unordered_map<std::string_view, Stop*> stopname_to_stop_;
     std::deque<Bus> buses_;
     std::unordered_map<std::string_view, Bus*> busname_to_bus_;
-    std::unordered_map<std::pair<Stop*, Stop*>, double, PairStopPointersHasher> distances_between_stops_;
+    std::unordered_map<std::pair<const Stop*, const Stop*>, Distance, StopHasher> distances_between_stops_;
     std::unordered_map<std::string_view, BusInfo> bus_info_;
-    std::unordered_map<std::string_view, std::unordered_set<Bus*, BusPointerHasher>> stop_info_;
+    std::unordered_map<const Stop*, std::set<std::string_view>, StopHasher> stop_info_;
 
-    double GetBusLength(const Bus* bus);
+    const Distance GetBusLength(const Bus* bus);
     void MapStopToBus(Bus* bus);
 };
 
@@ -126,7 +136,7 @@ void RunTestImpl(ReturnedType func, std::string_view func_name) {
 }
 
 
-} // namespace transport
+} // namespace tests
 
 #define RUN_TEST(func) tests::RunTestImpl((func), #func)
 // -------- Окончание модульных тестов транспортного справочника --------
