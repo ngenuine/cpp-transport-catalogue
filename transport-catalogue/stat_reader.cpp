@@ -1,1 +1,1 @@
-// место для вашего кода
+#include "stat_reader.h"
