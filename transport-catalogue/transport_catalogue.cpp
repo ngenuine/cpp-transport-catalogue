@@ -1,73 +1,32 @@
 #include "transport_catalogue.h"
 // #include "test_framework.h"
-#include <iomanip>
+
 #include <iostream>
 #include <unordered_set>
 #include <set>
 #include <cassert>
 
 namespace transport {
-std::ostream& operator<<(std::ostream& out, const std::set<std::string_view>& bus_set) {
-    
-    auto busname = bus_set.begin();
-    for (size_t cnt = 0; cnt < bus_set.size() - 1; ++cnt) {
-        out << *(busname++) << ' ';
-    }
 
-    out << *busname;
-
-    return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const transport::BusInfo& bus_info) {
-
-    if (bus_info.number_of_stops == 0) {
-        out << "Bus "sv << bus_info.busname << ": not found"sv;
-    } else {
-        out << "Bus "sv << bus_info.busname << ": "sv
-            << bus_info.number_of_stops << " stops on route, "sv
-            << bus_info.number_of_unique_stops << " unique stops, "sv
-            << std::setprecision(6) << bus_info.bus_curved_length << " route length, "sv
-            << bus_info.curvature << " curvature"sv;
-    }
-
-    return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const transport::StopInfo& stop_info) {
-
-    if (!stop_info.is_exist) {
-        out << "Stop "sv << stop_info.stopname << ": not found"sv;
-    } else {
-        if (stop_info.buses_across_stop->size() == 0) {
-            out << "Stop "sv << stop_info.stopname << ": no buses"sv;
-        } else {
-            out << "Stop "sv
-                << stop_info.stopname
-                << ": buses "sv
-                << *(stop_info.buses_across_stop);
-        }
-    }
-
-    return out;
-}
-
-void TransportCatalogue::AddStop(Stop& stop) {    
-    stops_.push_back({std::move(stop.stopname), stop.location});
+void TransportCatalogue::AddStop(const Stop& stop) {    
+    stops_.push_back({stop.stopname, stop.location});
     stopname_to_stop_[stops_.back().stopname] = &stops_.back();
     
-    stop_info_[&stops_.back()];
+    stopname_to_stopinfo_[stops_.back().stopname];
 }
 
-void TransportCatalogue::AddBus(RawBus& raw_bus) {
-    
+void TransportCatalogue::AddBus(const RawBus& raw_bus) {
+
     Bus bus;
     bus.busname = raw_bus.busname;
     bus.is_cycle = raw_bus.is_cycle;
     bus.stops.reserve(raw_bus.stops.size());
-    
+
     for (const auto& stopname : raw_bus.stops) {
-        bus.stops.push_back(stopname_to_stop_.at(stopname));
+        Stop* stop = stopname_to_stop_.at(stopname);
+        bus.stops.push_back(stop);
+
+        stopname_to_useful_stop_coordinates_.insert({stop->stopname, stop->location});
     }
 
     buses_.push_back(bus);
@@ -103,7 +62,7 @@ const BusInfo TransportCatalogue::GetBusInfo(std::string_view busname) {
         return not_found_bus;
     }
 
-    if (bus_info_.count(busname) == 0) {
+    if (busname_to_info_.count(busname) == 0) {
         BusInfo bus_info;
 
         bus_info.busname = existing_bus->busname;
@@ -123,39 +82,40 @@ const BusInfo TransportCatalogue::GetBusInfo(std::string_view busname) {
         bus_info.bus_curved_length = distance.curved;
         bus_info.curvature = bus_info.bus_curved_length * 1.0 / bus_info.bus_straight_length;
 
-        bus_info_[existing_bus->busname] = bus_info;
+        busname_to_info_[existing_bus->busname] = bus_info;
     }
 
-    return bus_info_.at(existing_bus->busname);
+    return busname_to_info_.at(existing_bus->busname);
 }
 
-const StopInfo TransportCatalogue::GetStopInfo(std::string& stopname) {
+const StopInfo TransportCatalogue::GetStopInfo(std::string_view stopname) {
 
     const Stop* existing_stop = FindStop(stopname);
-    // прим.: если делаешь так std::unordered_map<const Stop*, std::set<std::string_view>, StopHasher> stop_info_; то можно не конст_кастить
-    // auto nonconst_stop = const_cast<Stop*>(existing_stop);
     
     if (existing_stop == nullptr) {
         StopInfo not_found_stop;
-        not_found_stop.stopname = std::move(stopname);
+        not_found_stop.stopname = stopname;
         not_found_stop.is_exist = false;
         return not_found_stop;
     }
 
-    return {stopname, &stop_info_.at(existing_stop), true};
+    return {existing_stop->stopname, &stopname_to_stopinfo_.at(existing_stop->stopname), true};
 }
 
-void TransportCatalogue::SetCurvedDistance(Neighbours& neighbours) {
+void TransportCatalogue::SetCurvedDistance(const Neighbours& neighbours) {
     /* установить реальное (по дорогам, а не по прямой) расстояние между остановками */
 
-    // FindStop возвращает const Stop*; на обявление пары без const компилятор ругается :( 
     std::pair<const Stop*, const Stop*> from_to = {FindStop(neighbours.from), FindStop(neighbours.to)};
 
-    // if (distances_between_stops_.count(from_to) == 0) {
-    //     distances_between_stops_[from_to];
-    // }
-
     distances_between_stops_[from_to].curved = neighbours.curved;
+}
+
+const std::map<StopName, geo::Coordinates>& TransportCatalogue::GetUsefulStopCoordinates() const {
+    return stopname_to_useful_stop_coordinates_;
+}
+
+const std::map<BusName, Bus*>& TransportCatalogue::GetAllBuses() const {
+    return busname_to_bus_;
 }
 
 const Distance& TransportCatalogue::GetFromToDistance(const Stop* from, const Stop* to) {
@@ -170,7 +130,7 @@ const Distance& TransportCatalogue::GetFromToDistance(const Stop* from, const St
     Distance& distance = distances_between_stops_.at(from_to);
 
     if (distance.straight == 0.0) {
-        distance.straight = ComputeDistance(from->location, to->location);
+        distance.straight = geo::ComputeDistance(from->location, to->location);
     }
 
     return distance;
@@ -220,9 +180,10 @@ const Distance TransportCatalogue::GetBusLength(const Bus* bus) {
 
 void TransportCatalogue::MapStopToBus(Bus* bus) {
     for (Stop* stop : bus->stops) {
-        stop_info_[stop].insert(bus->busname);
+        stopname_to_stopinfo_[stop->stopname].insert(bus->busname);
     }
 }
+
 } // namespace transport
 
 namespace tests {
