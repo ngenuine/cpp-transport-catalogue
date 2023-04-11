@@ -8,7 +8,7 @@ using namespace std::literals;
 using namespace std::string_view_literals;
 
 auto node_by_key = [](const json::Node& node, const std::string& key) {
-    return node.AsMap().at(key);
+    return node.AsDict().at(key);
 };
 
 const std::vector<RawBus>& JsonReader::GetBusRequests() const {
@@ -50,7 +50,7 @@ void JsonReader::LoadJSON(std::istream& input) {
             const auto& from = node_by_key(request, "name"s);
             const auto& distances = node_by_key(request, "road_distances"s);
 
-            for (const auto& [to, distance] : distances.AsMap()) {
+            for (const auto& [to, distance] : distances.AsDict()) {
                 distances_.push_back({from.AsString(), to, distance.AsInt()});
             }
         }
@@ -104,7 +104,7 @@ void JsonReader::LoadJSON(std::istream& input) {
         return "rgba("s + color_code.str() + ")"s;
     };
 
-    for (const auto& [setting, value] : render_settings.AsMap()) {
+    for (const auto& [setting, value] : render_settings.AsDict()) {
         if (as_double.count(setting) == 1) {
             render_settings_.insert({setting, value.AsDouble()});
         } else if (as_int.count(setting) == 1) {

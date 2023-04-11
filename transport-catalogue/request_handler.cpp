@@ -1,4 +1,5 @@
 #include "request_handler.h"
+#include "json_builder.h"
 
 RequestHandler::RequestHandler(const JsonReader parsed_json)
     : parsed_json_(parsed_json)
@@ -30,9 +31,15 @@ void RequestHandler::BuildMapRenderer() {
 void RequestHandler::SolveStatRequests() {
 
     auto not_found = [](int id) {
-        return json::Dict{
-            {"request_id"s, id},
-            {"error_message"s, "not found"s}};
+        // return json::Dict{
+        //     {"request_id"s, id},
+        //     {"error_message"s, "not found"s}};
+        return json::Builder{}
+                    .StartDict()
+                        .Key("request_id"s).Value(id)
+                        .Key("error_message"s).Value("not found"s)
+                    .EndDict()
+                    .Build();
     };
 
     json::Array answer;
@@ -49,13 +56,15 @@ void RequestHandler::SolveStatRequests() {
 
             if (businfo.number_of_stops > 0) {
                 answer.push_back(
-                    json::Dict{
-                        {"curvature"s, businfo.curvature},
-                        {"request_id"s, request.id},
-                        {"route_length"s, businfo.bus_curved_length},
-                        {"stop_count"s, businfo.number_of_stops},
-                        {"unique_stop_count"s, businfo.number_of_unique_stops}
-                    });
+                    json::Builder{}
+                        .StartDict()
+                            .Key("curvature"s).Value(businfo.curvature)
+                            .Key("request_id"s).Value(request.id)
+                            .Key("route_length"s).Value(businfo.bus_curved_length)
+                            .Key("stop_count"s).Value(businfo.number_of_stops)
+                            .Key("unique_stop_count"s).Value(businfo.number_of_unique_stops)
+                        .EndDict()
+                        .Build());
             } else {
                 answer.push_back(not_found(request.id));
             }
@@ -69,12 +78,15 @@ void RequestHandler::SolveStatRequests() {
                     buses.push_back(std::string(busname));
                 }
 
-                // move(buses) и id превратятся в Node, потому что Dict = std::map<string, Node> и потому что у Node разрешена неявное преобразование типов
+                // move(buses) и id превратятся в Node, потому что Dict = std::map<string, Node>
+                // и потому что у Node разрешена неявное преобразование типов
                 answer.push_back(
-                    json::Dict{
-                        {"buses"s, move(buses)},
-                        {"request_id"s, request.id}
-                    });
+                    json::Builder{}
+                        .StartDict()
+                            .Key("buses"s).Value(move(buses))
+                            .Key("request_id"s).Value(request.id)
+                        .EndDict()
+                        .Build());
             } else {
                 answer.push_back(not_found(request.id));
             }
@@ -82,10 +94,12 @@ void RequestHandler::SolveStatRequests() {
             std::stringstream svg_map;
             RenderMap(svg_map);
             answer.push_back(
-                    json::Dict{
-                        {"map"s, svg_map.str()},
-                        {"request_id"s, request.id},
-                    });
+                json::Builder{}
+                    .StartDict()
+                        .Key("map"s).Value(svg_map.str())
+                        .Key("request_id"s).Value(request.id)
+                    .EndDict()
+                    .Build());
         } else {
 
             throw std::logic_error("Unknown request: " + "\""s + request.type + "\""s);

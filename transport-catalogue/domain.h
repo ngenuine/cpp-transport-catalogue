@@ -83,3 +83,24 @@ struct StopInfo {
     std::set<BusName>* buses_across_stop;
     bool is_exist = false;
 };
+
+// struct RenderSettings {
+//   double width /* = 1200.0 */;
+//   double height /* = 1200.0 */;
+
+//   double padding /* = 50.0 */;
+
+//   double line_width /* = 14.0 */;
+//   double stop_radius /* = 5.0 */;
+
+//   int bus_label_font_size /* = 20 */;
+//   std::vector<double> bus_label_offset /* = {7.0, 15.0} */;
+
+//   int stop_label_font_size /* = 20 */;
+//   std::vector<double> stop_label_offset /* = {7.0, -3.0} */;
+
+//   std::string underlayer_color /* = "Rgba(255,255,255,0.85)"s */;
+//   double underlayer_width /* = 3.0 */;
+
+//   std::vector<std::string> color_palette /* = {"green", "Rgb(255,160,0)", "red"} */;
+// };
