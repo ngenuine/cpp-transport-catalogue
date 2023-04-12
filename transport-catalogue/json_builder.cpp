@@ -74,20 +74,12 @@ json::Builder& BaseItemContext::Get() {
 KeyItemContext::KeyItemContext(json::Builder& builder)
     : BaseItemContext(builder) {}
 
-ValueItemContextAfterKey KeyItemContext::Value(Node value) {
+DictItemContext KeyItemContext::Value(Node value) {
     Get().Value(value);
-    return ValueItemContextAfterKey(Get());
+    return DictItemContext(Get());
 }
 
-// DictItemContext KeyItemContext::StartDict() {
-//     return DictItemContext(builder_.StartDict());
-// }
-
-// ArrayItemContext KeyItemContext::StartArray() {
-//     return ArrayItemContext(builder_.StartArray());
-// }
-
-// ========================= ValueItemContextAfterValue =========================
+// ========================= ValueItemContextAfterValue =======================
 ValueItemContextAfterValue::ValueItemContextAfterValue(json::Builder& builder)
     : BaseItemContext(builder) {}
 
@@ -95,18 +87,6 @@ ValueItemContextAfterValue ValueItemContextAfterValue::Value(json::Node value) {
     Get().Value(value);
     return ValueItemContextAfterValue(Get());
 }
-
-// DictItemContext ValueItemContextAfterValue::StartDict() {
-//     return DictItemContext(builder_.StartDict());
-// }
-
-// ArrayItemContext ValueItemContextAfterValue::StartArray() {
-//     return ArrayItemContext(builder_.StartArray());
-// }
-
-// json::Builder& ValueItemContextAfterValue::EndArray() {
-//     return builder_.EndArray();
-// }
 
 // ========================= ValueItemContext =========================
 ValueItemContext::ValueItemContext(json::Builder& builder)
@@ -117,67 +97,24 @@ ValueItemContextAfterValue ValueItemContext::Value(json::Node value) {
     return ValueItemContextAfterValue(Get());
 }
 
-// DictItemContext ValueItemContext::StartDict() {
-//     return DictItemContext(builder_.StartDict());
-// }
-
-// ArrayItemContext ValueItemContext::StartArray() {
-//     return ArrayItemContext(builder_.StartArray());
-// }
-
-// json::Builder& ValueItemContext::EndArray() {
-//     return builder_.EndArray();
-// }
-
 json::Node ValueItemContext::Build() {
     return Get().Build();
 }
-
-// ========================= ValueItemContextAfterKey =========================
-ValueItemContextAfterKey::ValueItemContextAfterKey(json::Builder& builder)
-    : BaseItemContext(builder) {}
-
-// KeyItemContext ValueItemContextAfterKey::Key(std::string key) {
-//     return KeyItemContext(builder_.Key(key));
-// }
-
-// json::Builder& ValueItemContextAfterKey::EndDict() {
-//     return builder_.EndDict();
-// }
 
 // ========================= ArrayItemContext =========================
 
 ArrayItemContext::ArrayItemContext(Builder& builder)
     : BaseItemContext(builder) {}
 
-ValueItemContext ArrayItemContext::Value(json::Node value) {
-    return ValueItemContext(Get().Value(value));
+ValueItemContextAfterValue ArrayItemContext::Value(json::Node value) {
+    Get().Value(value);
+    return ValueItemContextAfterValue(Get());
 }
-
-// DictItemContext ArrayItemContext::StartDict() {
-//     return DictItemContext(builder_.StartDict());
-// }
-
-// ArrayItemContext ArrayItemContext::StartArray() {
-//     return ArrayItemContext(builder_.StartArray());
-// }
-
-// Builder& ArrayItemContext::EndArray() {
-//     return builder_.EndArray();
-// }
 
 // ========================= DictItemContext =========================
 
 DictItemContext::DictItemContext(json::Builder& builder)
     : BaseItemContext(builder) {}
-
-// KeyItemContext DictItemContext::Key(std::string key) {
-//     return KeyItemContext(builder_.Key(key));
-// }
-
-// Builder& DictItemContext::EndDict() {
-//     return builder_.EndDict();
-// }
 
 } // namespace details
 

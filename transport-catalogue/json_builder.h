@@ -23,7 +23,6 @@ struct Visitor {
 class KeyItemContext;
 class ValueItemContextAfterValue;
 class ValueItemContext;
-class ValueItemContextAfterKey;
 class ArrayItemContext;
 class DictItemContext;
 
@@ -50,7 +49,7 @@ public:
     explicit KeyItemContext(json::Builder& builder);
 
     // некоторые члены класс реализует самостоятельно
-    ValueItemContextAfterKey Value(Node value);
+    DictItemContext Value(Node value);
 
     // закомментированные члены класса реализованы в базовом классе
     // DictItemContext StartDict();
@@ -65,7 +64,7 @@ public:
 //     json::Builder& builder_;
 };
 
-// ========================= ValueItemContextAfterValue =========================
+// ========================= ValueItemContextAfterValue =======================
 class ValueItemContextAfterValue : public BaseItemContext {
 public:
 
@@ -110,25 +109,6 @@ public:
 //     json::Builder& builder_;
 };
 
-// ========================= ValueItemContextAfterKey =========================
-class ValueItemContextAfterKey : public BaseItemContext {
-public:
-
-    explicit ValueItemContextAfterKey(json::Builder& builder);
-
-    // закомментированные члены класса реализованы в базовом классе
-    // KeyItemContext Key(std::string key);
-    // json::Builder& EndDict();
-
-    // остальные члены базового класса не предполагают их использование в наследнике
-    DictItemContext StartDict() = delete;
-    ArrayItemContext StartArray() = delete;
-    json::Builder& EndArray() = delete;
-
-// private:
-//     json::Builder& builder_;
-};
-
 // ========================= ArrayItemContext =========================
 
 class ArrayItemContext : public BaseItemContext {
@@ -137,7 +117,7 @@ public:
     explicit ArrayItemContext(json::Builder& builder);
 
     // некоторые члены класс реализует самостоятельно
-    ValueItemContext Value(Node value);
+    ValueItemContextAfterValue Value(Node value);
 
     // закомментированные члены класса реализованы в базовом классе
     // DictItemContext StartDict();

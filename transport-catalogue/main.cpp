@@ -1,6 +1,7 @@
 #include "request_handler.h"
 #include "json_reader.h"
 // #include "test_framework.h"
+#include "json_builder.h"
 
 #include <iostream>
 #include <fstream>
@@ -33,7 +34,6 @@ int main() {
     // печатаем json-ответ в stdout    
     request_handler.PrintSolution(cout);
 }
-
 
 // {
 //     JsonReader json_reader;
