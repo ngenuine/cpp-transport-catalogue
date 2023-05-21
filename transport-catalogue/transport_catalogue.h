@@ -9,6 +9,7 @@
 #include <string_view>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <algorithm>
 #include <optional>
@@ -21,6 +22,7 @@ namespace transport {
 class TransportCatalogue {
 public:
     void AddStop(const Stop& stop);
+    std::optional<size_t> GetUsefulStopId(std::string_view stopname);
     void AddBus(const RawBus& raw_bus);
     const Stop* FindStop(StopName stopname) const;
     const Bus* FindBus(BusName busname) const;
@@ -29,6 +31,7 @@ public:
     void SetCurvedDistance(const Neighbours& neighbours);
     const std::map<StopName, geo::Coordinates>& GetUsefulStopCoordinates() const;
     const std::map<BusName, Bus*>& GetAllBuses() const;
+    const std::unordered_map<std::pair<const Stop*, const Stop*>, Distance, StopHasher>& GetDistancesList() const;
     
 private:
     std::deque<Stop> stops_;
@@ -37,7 +40,7 @@ private:
     std::deque<Bus> buses_;
     std::map<BusName, Bus*> busname_to_bus_; // маршруты надо отcортировать лексикографически, т.к. от этого зависит их цвет
     std::unordered_map<std::pair<const Stop*, const Stop*>, Distance, StopHasher> distances_between_stops_;
-    std::unordered_map<BusName, BusInfo> busname_to_info_;
+    std::unordered_map<BusName, BusInfo> busname_to_businfo_;
     std::unordered_map<StopName, std::set<BusName>> stopname_to_stopinfo_;
 
     const Distance& GetFromToDistance(const Stop* from, const Stop* to);

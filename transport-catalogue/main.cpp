@@ -24,15 +24,18 @@ int main() {
     // создаем экземпляр фасада, который упростит взаимодействие классов при помощи агрегации
     RequestHandler request_handler(json_reader);
 
-    // метод разберется, какие методы для каких запросов обработчика json надо применить
     request_handler.BuildTransportDatabase();
     request_handler.BuildMapRenderer();
+    request_handler.BuildRouter();
 
     // формируется ответный json
     request_handler.SolveStatRequests();
 
     // печатаем json-ответ в stdout    
     request_handler.PrintSolution(cout);
+
+    // в поток выводится без экранирующих '\'
+    // в файл если выводить, то с экранирующими '\'
 }
 
 // {
@@ -40,23 +43,27 @@ int main() {
 
 //     // считываем json из файла
 //     int n; cin >> n;
-//     ifstream input("./tst/my_tests/ijson"s + to_string(n) + ".txt"s);
+//     ifstream input("./tst/ijson"s + to_string(n) + ".json"s);
 //     json_reader.LoadJSON(input);
     
 //     RequestHandler request_handler(json_reader);
 
+//     // хочется это распихать в ветки метода SolveStatRequests: если запрос на Map есть, то и MapRenderer создается, а потом уже
+//     // юзается. нет запроса -- нет и построения MapRenderer -- и так со всеми остальными
 //     request_handler.BuildTransportDatabase();
 //     request_handler.BuildMapRenderer();
+//     request_handler.BuildRouter();
 
 //     request_handler.SolveStatRequests();
 
-//     // печатаем json-ответ в файл   
-//     ofstream output1("./tst/my_tests/ojson"s + to_string(n) + ".json"s);
+//     // печатаем json-ответ в файл
+//     ofstream output1("./tst/ojson"s + to_string(n) + ".json"s);
 //     request_handler.PrintSolution(output1);
-
-//     ofstream output2("./tst/my_tests/osvg"s + to_string(n) + ".svg"s);
+//     request_handler.PrintSolution(cout);
+//     cout << endl << endl << endl;
+//     ofstream output2("./tst/my_tests_before_s13/osvg"s + to_string(n) + ".svg"s);
 //     // печатаем карту в файл
 //     request_handler.RenderMap(output2);
+//     request_handler.RenderMap(cout);
 // }
-
 }

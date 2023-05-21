@@ -1,7 +1,10 @@
 #include "request_handler.h"
 #include "json_builder.h"
+#include "router.h"
 
-RequestHandler::RequestHandler(const JsonReader parsed_json)
+#include <cassert>
+
+RequestHandler::RequestHandler(const JsonReader& parsed_json)
     : parsed_json_(parsed_json)
     {
     }
@@ -31,9 +34,12 @@ void RequestHandler::BuildMapRenderer() {
 void RequestHandler::SolveStatRequests() {
 
     auto not_found = [](int id) {
+        // вместо такого формирования ответа
         // return json::Dict{
         //     {"request_id"s, id},
         //     {"error_message"s, "not found"s}};
+
+        // более удобный и не способствующий ошибкам способ
         return json::Builder{}
                     .StartDict()
                         .Key("request_id"s).Value(id)
@@ -48,29 +54,33 @@ void RequestHandler::SolveStatRequests() {
         throw std::logic_error("Nothing to solve"s);
     }
     
-    for (const Request& request : parsed_json_.GetStatRequests()) {
+    for (const auto& request_ptr : parsed_json_.GetStatRequests()) {
         
-        if (request.type == "Bus"sv) {
+        if (request_ptr->type == "Bus"sv) {
             
-            const BusInfo businfo = db_.GetBusInfo(request.name);
+            Transport* bus = static_cast<Transport*>(request_ptr.get());
+
+            const BusInfo businfo = db_.GetBusInfo(bus->name);
 
             if (businfo.number_of_stops > 0) {
                 answer.push_back(
                     json::Builder{}
                         .StartDict()
                             .Key("curvature"s).Value(businfo.curvature)
-                            .Key("request_id"s).Value(request.id)
+                            .Key("request_id"s).Value(bus->id)
                             .Key("route_length"s).Value(businfo.bus_curved_length)
                             .Key("stop_count"s).Value(businfo.number_of_stops)
                             .Key("unique_stop_count"s).Value(businfo.number_of_unique_stops)
                         .EndDict()
                         .Build());
             } else {
-                answer.push_back(not_found(request.id));
+                answer.push_back(not_found(bus->id));
             }
-        } else if (request.type == "Stop"sv) {
+        } else if (request_ptr->type == "Stop"sv) {
 
-            const StopInfo stopinfo = db_.GetStopInfo(request.name);
+            Transport* stop = static_cast<Transport*>(request_ptr.get());
+
+            const StopInfo stopinfo = db_.GetStopInfo(stop->name);
             json::Array buses;
 
             if (stopinfo.is_exist) {
@@ -84,25 +94,90 @@ void RequestHandler::SolveStatRequests() {
                     json::Builder{}
                         .StartDict()
                             .Key("buses"s).Value(move(buses))
-                            .Key("request_id"s).Value(request.id)
+                            .Key("request_id"s).Value(stop->id)
                         .EndDict()
                         .Build());
             } else {
-                answer.push_back(not_found(request.id));
+                answer.push_back(not_found(stop->id));
             }
-        } else if (request.type == "Map"sv) {
+        } else if (request_ptr->type == "Map"sv) {
+
+            Map* map_request = static_cast<Map*>(request_ptr.get());
+            
             std::stringstream svg_map;
             RenderMap(svg_map);
             answer.push_back(
                 json::Builder{}
                     .StartDict()
                         .Key("map"s).Value(svg_map.str())
-                        .Key("request_id"s).Value(request.id)
+                        .Key("request_id"s).Value(map_request->id)
                     .EndDict()
                     .Build());
+        } else if (request_ptr->type == "Route"sv) {
+
+            Route* route = static_cast<Route*>(request_ptr.get());
+            std::optional<graph::VertexId> from = db_.GetUsefulStopId(route->from);
+            std::optional<graph::VertexId> to = db_.GetUsefulStopId(route->to);
+
+            if (!from || !to) {
+                answer.push_back(not_found(route->id));
+                continue;
+            }
+
+            std::optional<graph::Router<double>::RouteInfo> builded_route = router_->BuildRoute(from.value() * 2, to.value() * 2);
+            if (builded_route) {
+                if (builded_route.value().edges.size() == 0) {
+                    answer.push_back(
+                    json::Builder{}
+                        .StartDict()
+                            .Key("items"s).StartArray().EndArray()
+                            .Key("request_id"s).Value(route->id)
+                            .Key("total_time"s).Value(0)
+                        .EndDict()
+                        .Build());
+                } else {
+                    json::Array items;
+
+                    for (const auto edge_id : builded_route.value().edges) {
+                        const graph::Edge<double> edge = graph_->GetEdge(edge_id);
+                        if (edge.span == 0) {
+                            items.push_back(
+                                json::Builder{}
+                                    .StartDict()
+                                        .Key("stop_name"s).Value(std::string(edge.stop_name_from))
+                                        .Key("time"s).Value(edge.weight)
+                                        .Key("type"s).Value("Wait"s)
+                                    .EndDict()
+                                    .Build());
+                        } else if (edge.span > 0) {
+                            items.push_back(
+                                json::Builder{}
+                                    .StartDict()
+                                        .Key("bus"s).Value(std::string(edge.busname))
+                                        .Key("span_count"s).Value(static_cast<int>(edge.span))
+                                        .Key("time"s).Value(edge.weight)
+                                        .Key("type"s).Value("Bus"s)
+                                    .EndDict()
+                                    .Build());
+                        }
+                    }
+
+                    answer.push_back(
+                        json::Builder{}
+                            .StartDict()
+                                .Key("items"s).Value(std::move(items))
+                                .Key("request_id"s).Value(route->id)
+                                .Key("total_time"s).Value(builded_route.value().weight)
+                            .EndDict()
+                            .Build());
+                }
+            } else {
+                answer.push_back(not_found(route->id));
+            }
+
         } else {
 
-            throw std::logic_error("Unknown request: " + "\""s + request.type + "\""s);
+            throw std::logic_error("Unknown request: " + "\""s + (request_ptr->type) + "\""s);
         }
     }
 
@@ -120,4 +195,12 @@ void RequestHandler::PrintSolution(std::ostream& out) const {
     } else {
         throw std::logic_error("Nothing to print"s);
     }
+}
+
+void RequestHandler::BuildRouter() {
+    RoutingSettings settings = parsed_json_.GetRoutingSettings();
+    graph::GraphBuilder<double> builder(db_.GetUsefulStopCoordinates(), db_.GetAllBuses(), db_.GetDistancesList(), settings.bus_velocity, settings.bus_wait_time);
+
+    graph_ = std::move(builder.Build());
+    router_= std::make_unique<graph::Router<double>>(*graph_);
 }

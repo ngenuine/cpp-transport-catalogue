@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_set>
 #include <sstream>
+#include <memory>
 
 using namespace std::literals;
 using namespace std::string_view_literals;
@@ -23,12 +24,16 @@ const std::vector<Neighbours>& JsonReader::GetDistancesRequests() const {
     return distances_;
 }
 
-const std::vector<Request>& JsonReader::GetStatRequests() const {
+const std::vector<std::unique_ptr<Request>>& JsonReader::GetStatRequests() const {
     return stat_requests_;
 }
 
 const RenderSettings& JsonReader::GetRenderSettings() const {
     return render_settings_;
+}
+
+RoutingSettings JsonReader::GetRoutingSettings() const {
+    return routing_settings_;
 }
 
 void JsonReader::LoadJSON(std::istream& input) {
@@ -42,7 +47,7 @@ void JsonReader::LoadJSON(std::istream& input) {
         // перенос каждый вид запроса на создание базы данных справочника в свою категорию
         if (query_type.AsString() == "Bus"sv) {
             bus_requests_.push_back(ExtractBus(request));
-        } else  {
+        } else /* Stop */ {
 
             stop_requests_.push_back(ExtractStop(request));
 
@@ -62,18 +67,20 @@ void JsonReader::LoadJSON(std::istream& input) {
         const auto& id = node_by_key(request, "id"s);
         const auto& type = node_by_key(request, "type"s);
         if (type.AsString() == "Map"s) {
-            stat_requests_.push_back(
-                Request{id.AsInt(), type.AsString()
-            });
-
-        } else {
+            stat_requests_.push_back(std::make_unique<Map>(Map(id.AsInt(), type.AsString())));
+        } else if (type.AsString() == "Route"s) {
+            const auto& from = node_by_key(request, "from"s);
+            const auto& to = node_by_key(request, "to"s);
+            
+            stat_requests_.push_back(std::make_unique<Route>(Route(id.AsInt(),
+                                                                      type.AsString(),
+                                                                      from.AsString(),
+                                                                      to.AsString())));
+        } else /* Bus или Stop */ {
             const auto& name = node_by_key(request, "name"s);
-
-            stat_requests_.push_back(
-                Request{id.AsInt(),
-                type.AsString(),
-                name.AsString()});
-
+            stat_requests_.push_back(std::make_unique<Transport>(Transport(id.AsInt(),
+                                                                              type.AsString(),
+                                                                              name.AsString())));
         }
     }
 
@@ -131,6 +138,11 @@ void JsonReader::LoadJSON(std::istream& input) {
             throw std::logic_error("Unknown setting: "s + "\""s + setting + "\""s + " at render settings section");
         }
     }
+
+    const auto& routing_settings = node_by_key(json_document.GetRoot(), "routing_settings"s);
+    
+    routing_settings_.bus_wait_time = routing_settings.AsDict().at("bus_wait_time"s).AsInt();
+    routing_settings_.bus_velocity = routing_settings.AsDict().at("bus_velocity"s).AsInt();
 }
 
 RawBus JsonReader::ExtractBus(const json::Node& node) {

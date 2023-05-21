@@ -18,9 +18,31 @@ using Setting = std::variant<std::nullptr_t, double, int, std::pair<double, doub
 using RenderSettings = std::unordered_map<std::string, Setting>;
 
 struct Request {
-    int id = 0;
-    std::string type = ""s;
-    std::string name = ""s;
+    Request();
+    virtual ~Request();
+    Request(int id_, std::string type_);
+    int id;
+    std::string type;
+};
+
+struct Transport : public Request {
+    Transport(int id_, std::string type_, std::string name_);
+    Transport(Transport&& other);
+
+    std::string name;
+};
+
+struct Map : public Request {
+    Map(int id_, std::string type_);
+    Map(Map&& other);
+};
+
+struct Route : public Request {
+    Route(int id, std::string type, std::string from, std::string to);
+    Route(Route&& other);
+    
+    std::string from; // остановка может и не принадлежать ни одному маршруту
+    std::string to; // остановка может и не принадлежать ни одному маршруту
 };
 
 struct Neighbours {
@@ -38,6 +60,7 @@ struct Stop {
     // stopname строка, потому что много откуда сюда будут смотреть вьюхи
     std::string stopname = ""s;
     geo::Coordinates location;
+    size_t id = 0;
 };
 
 struct RawBus {
@@ -65,6 +88,12 @@ private:
     std::hash<const Stop*> pt_hasher_{};
 };
 
+struct PairSizetHasher {
+    size_t operator() (std::pair<size_t, size_t> from_to) const {
+        return from_to.first * 37 + from_to.second * 37 * 37 + ((from_to.first + from_to.second) * 37 * 37 * 37);
+    }
+};
+
 struct BusInfo {
     // в момент получения BusInfo справочник полностью готов;
     // вьюха busname тут может смотреть на строку busname из дэка buses_;
@@ -79,9 +108,14 @@ struct BusInfo {
 struct StopInfo {
     // в момент получения StopInfo справочник полностью готов;
     // вьюха stopname тут может смотреть на строку stopname из дэка stops_;
-    StopName stopname = ""s;
+    StopName stopname;
     std::set<BusName>* buses_across_stop;
     bool is_exist = false;
+};
+
+struct RoutingSettings {
+    int bus_wait_time = 1000;
+    int bus_velocity = 1000;
 };
 
 // struct RenderSettings {

@@ -42,7 +42,6 @@ private:
 };
 
 // ========================= KeyItemContext =========================
-
 class KeyItemContext : public BaseItemContext {
 public:
 
@@ -110,7 +109,6 @@ public:
 };
 
 // ========================= ArrayItemContext =========================
-
 class ArrayItemContext : public BaseItemContext {
 public:
 
@@ -133,7 +131,6 @@ public:
 };
 
 // ========================= DictItemContext =========================
-
 class DictItemContext : public BaseItemContext {
 public:
 

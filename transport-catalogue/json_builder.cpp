@@ -70,7 +70,6 @@ json::Builder& BaseItemContext::Get() {
 }
 
 // ========================= KeyItemContext =========================
-
 KeyItemContext::KeyItemContext(json::Builder& builder)
     : BaseItemContext(builder) {}
 
@@ -102,7 +101,6 @@ json::Node ValueItemContext::Build() {
 }
 
 // ========================= ArrayItemContext =========================
-
 ArrayItemContext::ArrayItemContext(Builder& builder)
     : BaseItemContext(builder) {}
 
@@ -112,7 +110,6 @@ ValueItemContextAfterValue ArrayItemContext::Value(json::Node value) {
 }
 
 // ========================= DictItemContext =========================
-
 DictItemContext::DictItemContext(json::Builder& builder)
     : BaseItemContext(builder) {}
 

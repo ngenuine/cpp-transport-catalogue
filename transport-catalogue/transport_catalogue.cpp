@@ -8,11 +8,21 @@
 
 namespace transport {
 
-void TransportCatalogue::AddStop(const Stop& stop) {    
-    stops_.push_back({stop.stopname, stop.location});
+void TransportCatalogue::AddStop(const Stop& stop) {
+    size_t id = stops_.size();
+    stops_.push_back({stop.stopname, stop.location, id});
+    
     stopname_to_stop_[stops_.back().stopname] = &stops_.back();
     
     stopname_to_stopinfo_[stops_.back().stopname];
+}
+
+std::optional<size_t> TransportCatalogue::GetUsefulStopId(std::string_view stopname) {
+    if (stopname_to_useful_stop_coordinates_.count(stopname) == 1) {
+        return stopname_to_useful_stop_coordinates_.at(stopname).id;
+    }
+
+    return std::nullopt;
 }
 
 void TransportCatalogue::AddBus(const RawBus& raw_bus) {
@@ -26,7 +36,17 @@ void TransportCatalogue::AddBus(const RawBus& raw_bus) {
         Stop* stop = stopname_to_stop_.at(stopname);
         bus.stops.push_back(stop);
 
-        stopname_to_useful_stop_coordinates_.insert({stop->stopname, stop->location});
+        // каждая "полезная" (участвующая в построении маршрутов) если еще не получила, получит свой id;
+        // эти id обязательно от 0 и больше по порядку без пропусков должны быть -- для роутера это важно;
+        // также она спроецирует id в саму остановку -- так остановка будет знать, какой ее уникальный
+        // id среди остановок, участвующих в построении маршрутов
+        if (stopname_to_useful_stop_coordinates_.count(stopname) == 0) {
+            geo::Coordinates useful_coordinates = stop->location;
+            useful_coordinates.id = stopname_to_useful_stop_coordinates_.size();
+            stopname_to_useful_stop_coordinates_.insert({stop->stopname, std::move(useful_coordinates)});
+            
+            stop->id = useful_coordinates.id;
+        }
     }
 
     buses_.push_back(bus);
@@ -62,7 +82,7 @@ const BusInfo TransportCatalogue::GetBusInfo(std::string_view busname) {
         return not_found_bus;
     }
 
-    if (busname_to_info_.count(busname) == 0) {
+    if (busname_to_businfo_.count(busname) == 0) {
         BusInfo bus_info;
 
         bus_info.busname = existing_bus->busname;
@@ -82,10 +102,10 @@ const BusInfo TransportCatalogue::GetBusInfo(std::string_view busname) {
         bus_info.bus_curved_length = distance.curved;
         bus_info.curvature = bus_info.bus_curved_length * 1.0 / bus_info.bus_straight_length;
 
-        busname_to_info_[existing_bus->busname] = bus_info;
+        busname_to_businfo_[existing_bus->busname] = bus_info;
     }
 
-    return busname_to_info_.at(existing_bus->busname);
+    return busname_to_businfo_.at(existing_bus->busname);
 }
 
 const StopInfo TransportCatalogue::GetStopInfo(std::string_view stopname) {
@@ -117,6 +137,11 @@ const std::map<StopName, geo::Coordinates>& TransportCatalogue::GetUsefulStopCoo
 const std::map<BusName, Bus*>& TransportCatalogue::GetAllBuses() const {
     return busname_to_bus_;
 }
+
+const std::unordered_map<std::pair<const Stop*, const Stop*>, Distance, StopHasher>& TransportCatalogue::GetDistancesList() const {
+    return distances_between_stops_;
+}
+
 
 const Distance& TransportCatalogue::GetFromToDistance(const Stop* from, const Stop* to) {
     /* в виде структуры Distance выдаст расстояние, которое имеется в базе */

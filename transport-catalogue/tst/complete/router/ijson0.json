@@ -1,0 +1,138 @@
+{
+  "base_requests": [
+    {
+      "is_roundtrip": true,
+      "name": "ROUNDTRIP_1",
+      "stops": ["A", "B", "C", "C", "B", "D", "A"],
+      "type": "Bus"
+    },
+    {
+      "is_roundtrip": true,
+      "name": "ROUNDTRIP_2",
+      "stops": ["A", "B", "C", "D", "E", "A"],
+      "type": "Bus"
+    },
+    {
+      "is_roundtrip": true,
+      "name": "ROUNDTRIP_3",
+      "stops": ["A", "B", "A"],
+      "type": "Bus"
+    },
+    {
+      "is_roundtrip": false,
+      "name": "LINEAR_1",
+      "stops": ["A", "B"],
+      "type": "Bus"
+    },
+    {
+      "is_roundtrip": false,
+      "name": "LINEAR_2",
+      "stops": ["A", "B", "C"],
+      "type": "Bus"
+    },
+    {
+      "is_roundtrip": false,
+      "name": "LINEAR_3",
+      "stops": ["A", "B", "C", "D", "E"],
+      "type": "Bus"
+    },
+    {
+      "latitude": 59.838861,
+      "longitude": 30.325431,
+      "name": "A",
+      "road_distances": {
+        "B": 30,
+        "E": 35
+      },
+      "type": "Stop"
+    },
+    {
+      "latitude": 59.838861,
+      "longitude": 30.326607,
+      "name": "B",
+      "road_distances": {
+        "A": 47,
+        "C": 34,
+        "D": 500
+      },
+      "type": "Stop"
+    },
+    {
+      "latitude": 59.838152,
+      "longitude": 30.327149,
+      "name": "C",
+      "road_distances": {
+        "B": 20,
+        "D": 55,
+        "C": 100
+      },
+      "type": "Stop"
+    },
+    {
+      "latitude": 59.83778,
+      "longitude": 30.325757,
+      "name": "D",
+      "road_distances": {
+        "E": 50,
+        "A": 57
+      },
+      "type": "Stop"
+    },
+    {
+      "latitude": 59.838397,
+      "longitude": 30.324835,
+      "name": "E",
+      "road_distances": {
+        "D": 26
+      },
+      "type": "Stop"
+    }
+  ],
+  "render_settings": {
+    "bus_label_font_size": 20,
+    "bus_label_offset": [7, 15],
+    "color_palette": ["green", [255, 160, 0], "red"],
+    "height": 200,
+    "line_width": 14,
+    "padding": 30,
+    "stop_label_font_size": 20,
+    "stop_label_offset": [7, -3],
+    "stop_radius": 5,
+    "underlayer_color": [255, 255, 255, 0.85],
+    "underlayer_width": 3,
+    "width": 200
+  },
+  "routing_settings": {
+    "bus_velocity": 40,
+    "bus_wait_time": 6
+  },
+  "stat_requests": [
+    {
+      "id": 1,
+      "name": "297",
+      "type": "Bus"
+    },
+    {
+      "id": 2,
+      "name": "635",
+      "type": "Bus"
+    },
+    {
+      "id": 3,
+      "name": "C",
+      "type": "Stop"
+    },
+    {
+      "from": "A",
+      "id": 4,
+      "to": "C",
+      "type": "Route"
+    },
+    {
+      "from": "A",
+      "id": 5,
+      "to": "D",
+      "type": "Route"
+    }
+  ]
+}

@@ -50,7 +50,7 @@ std::ostream& operator<<(std::ostream& out, const StrokeLineJoin& stroke_line_jo
 void Object::Render(const RenderContext& context) const {
     context.RenderIndent();
 
-    // Делегируем вывод тега своим подклассам
+    // делегируем вывод тега своим подклассам
     RenderObject(context);
 
     context.out << std::endl;
@@ -73,7 +73,7 @@ void Circle::RenderObject(const RenderContext& context) const {
     out << "<circle cx=\""sv << center_.x << "\" cy=\""sv << center_.y << "\" "sv;
     out << "r=\""sv << radius_ << "\" "sv;
     
-    // Выводим атрибуты, унаследованные от PathProps
+    // выводим атрибуты, унаследованные от PathProps
     this->RenderAttrs(out);
     out << "/>"sv;
 }
@@ -98,7 +98,7 @@ void Polyline::RenderObject(const RenderContext& context) const {
 
     out << "\" "sv;
 
-    // Выводим атрибуты, унаследованные от PathProps
+    // выводим атрибуты, унаследованные от PathProps
     this->RenderAttrs(out);
     out << "/>"sv;
 }
@@ -131,7 +131,7 @@ Text& Text::SetFontWeight(std::string font_weight) {
 }
 
 Text& Text::SetData(std::string data) {
-    // Символы ", <, >, ' и & имеют особое значение и при выводе должны экранироваться
+    // символы ", <, >, ' и & имеют особое значение и при выводе должны экранироваться
     std::string prepared_text = ""s;
     for (const char c : data) {
         if (remarkable_symbols.count(c) == 1) {
@@ -149,7 +149,7 @@ void Text::RenderObject(const RenderContext& context) const {
     auto& out = context.out;
     out << "<text "sv;
     
-    // Выводим атрибуты, унаследованные от PathProps
+    // выводим атрибуты, унаследованные от PathProps
     this->RenderAttrs(out);
 
     out << "x=\""sv << pos_.x << "\" y=\""sv << pos_.y << "\" "sv;
@@ -181,6 +181,15 @@ void Document::Render(std::ostream& out) const {
 
     for (const auto& object : objects_) {
         // вывод содержимого документа
+
+        // в svg::Document поле std::vector<std::unique_ptr<Object>> objects_;
+        // содержит наследников Object, у которого в паблике Render, а в привате
+        // RenderObject; команда ниже вызывает у наследника Object метод Render
+        // с передачей контекста для печати, а уже внутри Render будет вызван
+        // переопределенный метод наследника:
+            // делегируем вывод тега своим подклассам
+            // RenderObject(context);
+        // наследник уже в своем методе печатает свои данные при помощи контекста
         (*object).Render(ctx);
     }
     out << "</svg>"sv;
