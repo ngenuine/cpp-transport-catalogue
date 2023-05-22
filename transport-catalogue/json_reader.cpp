@@ -73,14 +73,14 @@ void JsonReader::LoadJSON(std::istream& input) {
             const auto& to = node_by_key(request, "to"s);
             
             stat_requests_.push_back(std::make_unique<Route>(Route(id.AsInt(),
-                                                                      type.AsString(),
-                                                                      from.AsString(),
-                                                                      to.AsString())));
+                                                                   type.AsString(),
+                                                                   from.AsString(),
+                                                                   to.AsString())));
         } else /* Bus или Stop */ {
             const auto& name = node_by_key(request, "name"s);
             stat_requests_.push_back(std::make_unique<Transport>(Transport(id.AsInt(),
-                                                                              type.AsString(),
-                                                                              name.AsString())));
+                                                                           type.AsString(),
+                                                                           name.AsString())));
         }
     }
 

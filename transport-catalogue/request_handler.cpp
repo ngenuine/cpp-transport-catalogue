@@ -116,15 +116,9 @@ void RequestHandler::SolveStatRequests() {
         } else if (request_ptr->type == "Route"sv) {
 
             Route* route = static_cast<Route*>(request_ptr.get());
-            std::optional<graph::VertexId> from = db_.GetUsefulStopId(route->from);
-            std::optional<graph::VertexId> to = db_.GetUsefulStopId(route->to);
 
-            if (!from || !to) {
-                answer.push_back(not_found(route->id));
-                continue;
-            }
-
-            std::optional<graph::Router<double>::RouteInfo> builded_route = router_->BuildRoute(from.value() * 2, to.value() * 2);
+            std::optional<graph::Router<double>::RouteInfo> builded_route = transport_router_->BuildRouteBetweenStops(route->from, route->to);
+            
             if (builded_route) {
                 if (builded_route.value().edges.size() == 0) {
                     answer.push_back(
@@ -139,7 +133,7 @@ void RequestHandler::SolveStatRequests() {
                     json::Array items;
 
                     for (const auto edge_id : builded_route.value().edges) {
-                        const graph::Edge<double> edge = graph_->GetEdge(edge_id);
+                        const graph::Edge<double>& edge = transport_router_->GetEdge(edge_id);
                         if (edge.span == 0) {
                             items.push_back(
                                 json::Builder{}
@@ -197,10 +191,6 @@ void RequestHandler::PrintSolution(std::ostream& out) const {
     }
 }
 
-void RequestHandler::BuildRouter() {
-    RoutingSettings settings = parsed_json_.GetRoutingSettings();
-    graph::GraphBuilder<double> builder(db_.GetUsefulStopCoordinates(), db_.GetAllBuses(), db_.GetDistancesList(), settings.bus_velocity, settings.bus_wait_time);
-
-    graph_ = std::move(builder.Build());
-    router_= std::make_unique<graph::Router<double>>(*graph_);
+void RequestHandler::BuildTransportRouter() {
+    transport_router_ = std::make_unique<transport_router::TransportRouter<double>>(db_, parsed_json_.GetRoutingSettings());
 }

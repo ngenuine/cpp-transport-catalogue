@@ -26,7 +26,7 @@ int main() {
 
     request_handler.BuildTransportDatabase();
     request_handler.BuildMapRenderer();
-    request_handler.BuildRouter();
+    request_handler.BuildTransportRouter();
 
     // формируется ответный json
     request_handler.SolveStatRequests();

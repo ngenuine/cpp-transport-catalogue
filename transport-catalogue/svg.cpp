@@ -57,7 +57,6 @@ void Object::Render(const RenderContext& context) const {
 }
 
 // ---------- Circle ------------------
-
 Circle& Circle::SetCenter(Point center)  {
     center_ = center;
     return *this;
@@ -104,7 +103,6 @@ void Polyline::RenderObject(const RenderContext& context) const {
 }
 
 // ---------- Text ------------------
-
 Text& Text::SetPosition(Point pos) {
     pos_ = pos;
     return *this;

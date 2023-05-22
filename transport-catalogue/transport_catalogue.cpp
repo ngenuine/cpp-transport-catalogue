@@ -17,7 +17,7 @@ void TransportCatalogue::AddStop(const Stop& stop) {
     stopname_to_stopinfo_[stops_.back().stopname];
 }
 
-std::optional<size_t> TransportCatalogue::GetUsefulStopId(std::string_view stopname) {
+std::optional<size_t> TransportCatalogue::GetUsefulStopId(std::string_view stopname) const {
     if (stopname_to_useful_stop_coordinates_.count(stopname) == 1) {
         return stopname_to_useful_stop_coordinates_.at(stopname).id;
     }

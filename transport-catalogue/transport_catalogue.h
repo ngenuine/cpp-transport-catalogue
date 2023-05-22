@@ -22,7 +22,7 @@ namespace transport {
 class TransportCatalogue {
 public:
     void AddStop(const Stop& stop);
-    std::optional<size_t> GetUsefulStopId(std::string_view stopname);
+    std::optional<size_t> GetUsefulStopId(std::string_view stopname) const;
     void AddBus(const RawBus& raw_bus);
     const Stop* FindStop(StopName stopname) const;
     const Bus* FindBus(BusName busname) const;
@@ -32,7 +32,7 @@ public:
     const std::map<StopName, geo::Coordinates>& GetUsefulStopCoordinates() const;
     const std::map<BusName, Bus*>& GetAllBuses() const;
     const std::unordered_map<std::pair<const Stop*, const Stop*>, Distance, StopHasher>& GetDistancesList() const;
-    
+
 private:
     std::deque<Stop> stops_;
     std::map<StopName, Stop*> stopname_to_stop_;

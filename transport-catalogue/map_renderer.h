@@ -1,7 +1,7 @@
 #pragma once
 
-#include "geo.h" // Coordinates
-#include "domain.h" // RenderSettings
+#include "geo.h"
+#include "domain.h"
 #include "svg.h"
 
 #include <algorithm>
