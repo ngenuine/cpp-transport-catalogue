@@ -1,4 +1,7 @@
+#pragma once
+
 #include "json.h"
+
 #include <vector>
 #include <string>
 
@@ -10,6 +13,7 @@ class Builder;
 
 namespace details {
 
+// сделал его для формирования понятной ошибки
 struct Visitor {
     std::string operator()(bool b) const;
     std::string operator()(std::nullptr_t) const;
@@ -169,6 +173,7 @@ private:
     // без этого поля нельзя понять, что корень был инициализирован, ведь проверку root_.IsNull() нельзя использовать,
     // так как nullptr это валидное значение корня; и если я пишу в Build() "if (root_.IsNull() || nodes_stack_.size() != 0)"
     // то падаю в исключение, хотя но root_ запросто может быть IsNull(), нарпимер так: Builder{}.Value(nullptr).Build()
+    // это json-документ, в октором все содержимое это единственный null
     bool is_root_set_ = false;
 };
 

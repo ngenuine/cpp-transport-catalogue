@@ -1,0 +1,12 @@
+{
+  "serialization_settings": {
+    "file": "transport_catalogue.db"
+  },
+  "stat_requests": [
+    {
+      "id": 48099304,
+      "type": "Bus",
+      "name": "ABC"
+    }
+  ]
+}

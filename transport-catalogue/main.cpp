@@ -1,69 +1,62 @@
 #include "request_handler.h"
 #include "json_reader.h"
-// #include "test_framework.h"
 #include "json_builder.h"
+#include "serialization.h"
+// #include "test_framework.h"
 
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <string_view>
 
-using namespace std;
+using namespace std::literals;
 
-int main() {
+void PrintUsage(std::ostream& stream = std::cerr) {
+    stream << "Usage: transport_catalogue [make_base|process_requests]\n"sv;
+}
+
+int main(int argc, char* argv[]) {
 // {    
 //     tests::RunInputTests();
 //     tests::RunTransportCatalogueTests();
 //     tests::RunOutputTests();
 // }
 
-{
-    JsonReader json_reader;
-    // считываем json из stdin
-    json_reader.LoadJSON(cin);
-    
-    // создаем экземпляр фасада, который упростит взаимодействие классов при помощи агрегации
-    RequestHandler request_handler(json_reader);
+    if (argc != 2) {
+        PrintUsage();
+        return 1;
+    }
 
-    request_handler.BuildTransportDatabase();
-    request_handler.BuildMapRenderer();
-    request_handler.BuildTransportRouter();
+    const std::string_view mode(argv[1]);
 
-    // формируется ответный json
-    request_handler.SolveStatRequests();
+    if (mode == "make_base"sv) {
+        JsonReader json_reader;
+        json_reader.LoadJSON(std::cin, ReadMode::MAKE_BASE);
 
-    // печатаем json-ответ в stdout    
-    request_handler.PrintSolution(cout);
+        TransportData transport_data;
+        RequestHandler request_handler(json_reader, transport_data, ReadMode::MAKE_BASE);
 
-    // в поток выводится без экранирующих '\'
-    // в файл если выводить, то с экранирующими '\'
-}
+        serialization::Serializator serializator(transport_data);
 
-// {
-//     JsonReader json_reader;
+        std::ofstream binary_output(json_reader.GetOutputFilepath(), std::ios::binary);
+        serializator.Serialize(binary_output);
 
-//     // считываем json из файла
-//     int n; cin >> n;
-//     ifstream input("./tst/ijson"s + to_string(n) + ".json"s);
-//     json_reader.LoadJSON(input);
-    
-//     RequestHandler request_handler(json_reader);
+    } else if (mode == "process_requests"sv) {
+        JsonReader json_reader;
+        json_reader.LoadJSON(std::cin, ReadMode::PROCESS_REQUEST);
 
-//     // хочется это распихать в ветки метода SolveStatRequests: если запрос на Map есть, то и MapRenderer создается, а потом уже
-//     // юзается. нет запроса -- нет и построения MapRenderer -- и так со всеми остальными
-//     request_handler.BuildTransportDatabase();
-//     request_handler.BuildMapRenderer();
-//     request_handler.BuildRouter();
+        TransportData transport_data;
+        serialization::Serializator serializator(transport_data);
 
-//     request_handler.SolveStatRequests();
+        std::ifstream binary_input(json_reader.GetInputFilepath(), std::ios::binary);
+        serializator.Deserialize(binary_input);
 
-//     // печатаем json-ответ в файл
-//     ofstream output1("./tst/ojson"s + to_string(n) + ".json"s);
-//     request_handler.PrintSolution(output1);
-//     request_handler.PrintSolution(cout);
-//     cout << endl << endl << endl;
-//     ofstream output2("./tst/my_tests_before_s13/osvg"s + to_string(n) + ".svg"s);
-//     // печатаем карту в файл
-//     request_handler.RenderMap(output2);
-//     request_handler.RenderMap(cout);
-// }
+        RequestHandler request_handler(json_reader, transport_data, ReadMode::PROCESS_REQUEST);
+        request_handler.SolveStatRequests();
+        request_handler.PrintSolution(std::cout);
+        // request_handler.RenderMap(std::cout);
+    } else {
+        PrintUsage();
+        return 1;
+    }
 }

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package pb_msg;
+
+import "graph.proto";
+
+message RoutingSettings {
+    double velocity_mph = 1;
+    double wait_time_min = 2;
+}
+
+message TransportRouter {
+    Graph graph = 1;
+    RoutingSettings settings = 2;
+}
+
+// <путь к пакету Protobuf>/bin/protoc --cpp_out . transport_catalogue.proto

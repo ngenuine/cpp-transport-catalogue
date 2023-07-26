@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package pb_msg;
+
+message Edge {
+    uint64 from = 1;
+    uint64 to = 2;
+    double weight = 3;
+    uint64 busname = 4;
+    uint64 span = 5;
+    uint64 stop_name_from = 6;
+}
+
+message IncidenceEdgeIds {
+    repeated uint64 edge_id = 1;
+}
+
+message Graph {
+    repeated Edge edge = 1;
+    repeated IncidenceEdgeIds incidence_edges = 2;
+}
+
+// <путь к пакету Protobuf>/bin/protoc --cpp_out . transport_catalogue.proto

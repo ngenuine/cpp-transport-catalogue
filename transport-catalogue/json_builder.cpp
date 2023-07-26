@@ -1,4 +1,5 @@
 #include "json_builder.h"
+
 #include <vector>
 #include <string>
 #include <stdexcept>

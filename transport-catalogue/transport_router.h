@@ -1,6 +1,9 @@
+#pragma once
+
 #include "router.h"
 #include "graph.h"
 #include "transport_catalogue.h"
+
 #include <memory>
 
 static const double METERS_PER_KILOMETER = 1000;
@@ -16,8 +19,14 @@ class TransportRouter {
     using VertexIdsToEdgeId = std::unordered_map<std::pair<VertexId, VertexId>, EdgeId, PairSizetHasher>;
 public:
     TransportRouter(const transport::TransportCatalogue& transport_catalogue, RoutingSettings settings);
+    TransportRouter(const transport::TransportCatalogue& transport_catalogue, graph::DirectedWeightedGraph<Weight>&& graph, RoutingSettings settings);
     std::optional<typename graph::Router<Weight>::RouteInfo> BuildRouteBetweenStops(std::string_view from, std::string_view to) const;
-    const graph::Edge<Weight>& GetEdge(EdgeId edge_id) const;
+
+    double GetVelocity() const;
+    double GetWaitTime() const;
+
+    const graph::DirectedWeightedGraph<Weight>& GetGraph() const;
+
 
 private:
     const transport::TransportCatalogue& transport_catalogue_;
@@ -40,9 +49,15 @@ TransportRouter<Weight>::TransportRouter(const transport::TransportCatalogue& tr
 {
     // в решении остановке будет поставлено в соответствие две вершины
     // например, Universam : [0, 1]; Prashskaya : [2, 3] и тд
-    for (const auto& [stopname, stop_ptr] : transport_catalogue_.GetUsefulStopCoordinates()) {
-        std::pair<VertexId, VertexId> stop_ids = {stop_ptr.id * 2, stop_ptr.id * 2 + 1};
-        GenerateWaitingEdge(stopname, stop_ids);
+    for (const auto& [stopname, _] : transport_catalogue_.GetUsefulStopCoordinates()) {
+        // имеем имя полезной остановки, значит достучимся до ее id
+        size_t stop_id = transport_catalogue_.FindStop(stopname)->id;
+
+        // id остановки кодирует вершины этой остановки в графе:
+        // - остановка "входа" это id * 2
+        // - остановка "выхода" это id * 2 + 1
+        std::pair<VertexId, VertexId> stop_vertices = {stop_id * 2, stop_id * 2 + 1};
+        GenerateWaitingEdge(stopname, stop_vertices);
     }
 
     // для каждого маршрута генерируются все ребра на нем
@@ -54,6 +69,16 @@ TransportRouter<Weight>::TransportRouter(const transport::TransportCatalogue& tr
 }
 
 template<typename Weight>
+TransportRouter<Weight>::TransportRouter(const transport::TransportCatalogue& transport_catalogue, graph::DirectedWeightedGraph<Weight>&& graph, RoutingSettings settings)
+    : transport_catalogue_(transport_catalogue)
+    , graph_(std::move(graph))
+    , velocity_mph_(settings.bus_velocity)
+    , wait_time_min_(settings.bus_wait_time)
+{
+    router_= std::make_unique<graph::Router<Weight>>(graph_);
+}
+
+template<typename Weight>
 std::optional<typename graph::Router<Weight>::RouteInfo> TransportRouter<Weight>::BuildRouteBetweenStops(std::string_view from, std::string_view to) const{
     std::optional<VertexId> from_vertex = transport_catalogue_.GetUsefulStopId(from);
     std::optional<VertexId> to_vertex = transport_catalogue_.GetUsefulStopId(to);
@@ -61,13 +86,22 @@ std::optional<typename graph::Router<Weight>::RouteInfo> TransportRouter<Weight>
     if (!from_vertex || !to_vertex) {
         return std::nullopt;
     }
-
     return router_->BuildRoute(from_vertex.value() * 2, to_vertex.value() * 2);
 }
 
 template<typename Weight>
-const graph::Edge<Weight>& TransportRouter<Weight>::GetEdge(EdgeId edge_id) const {
-    return graph_.GetEdge(edge_id);
+double TransportRouter<Weight>::GetVelocity() const {
+    return velocity_mph_;
+}
+
+template<typename Weight>
+double TransportRouter<Weight>::GetWaitTime() const {
+    return wait_time_min_;
+}
+
+template<typename Weight>
+const graph::DirectedWeightedGraph<Weight>& TransportRouter<Weight>::GetGraph() const {
+    return graph_;
 }
 
 template<typename Weight>
@@ -85,6 +119,11 @@ void TransportRouter<Weight>::GenerateWaitingEdge(std::string_view stopname, std
 
 template<typename Weight>
 void TransportRouter<Weight>::GenerateEdgesOnBus(std::string_view busname, const Bus* bus) {
+    /* в этом методе для маршрута А - В - С - В - А (некруговой) прострою смежные ребра: АВ, ВА, ВС, СВ,
+    а для маршрута А - В - С - А (круговой) прострою смежные ребра: АВ, ВС, СА;
+    
+    потом передам в метод, который простроит на основе смежных ребер вычислит все необходимые хорды */
+
     VertexIdsToEdgeId adjacent_edge_ids; // в эту хэш-мапу будут положены id смежных ребер на маршруте
 
     const std::vector<Stop*>& stops = bus->stops;
@@ -173,6 +212,16 @@ void TransportRouter<Weight>::GenerateChordEdgesOnBus(const VertexIdsToEdgeId& a
             forward_edge.span = from_between.span + between_to.span;
             forward_edge.stop_name_from = stops[i]->stopname;
 
+            // в этой временной (на время работы метода) мапе довольно часто будут случаться ситуации, когда хорда
+            // уже добавлена, и мы добавляем ровно такую-же, но с тругим весом, большим, чем есть -- это нормальная ситуация!
+            // например на маршруте <A - B - С - C - D - C - B - A> будут высчитываться ребра-хорды:
+            // 1) AC = AB (из смежных только в первом цикле) + BС (всегда из смежных);
+            // 2) снова AC!!! = AB (отныне первая половина теперь всегда из chord_edge_ids берется) + DC (из cмежных);
+            // и это AC будет иметь те же самые VertexId from и VertexId to, и перезатрет value (прошлое посчитанное AC)
+            // в мапе chord_edge_ids, и это хорошо! потому что теперь именно это новое AC нужно, чтобы посчитать ребро
+            // AD = AC (из chord_edge_ids) + CD (из cмежных), которое отражает поездку из A в D без ожидания, но с объездом:
+            // AB + BC + CC(объезд) + СD, поэтому оно нужно, но ведь можно AB + BC + ожидание, т.к. не хочется крюк + CD,
+            // и что будет выгоднее зависит от времени ожидания, т.к. возможно объезд будет сделать быстрее, чем ждать
             chord_edge_ids[{forward_edge.from, forward_edge.to}] = graph_.AddEdge(forward_edge);
 
             if (!bus->is_cycle) {

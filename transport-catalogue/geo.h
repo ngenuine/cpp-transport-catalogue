@@ -7,9 +7,6 @@ namespace geo {
 struct Coordinates {
     double lat; // Широта
     double lng; // Долгота
-    // когда очередные координаты добавят куда-то, этот счетчик
-    // отметит очередь, при которой координаты были добавлены
-    size_t id = 0;
 
     bool operator==(const Coordinates& other) const {
         return std::abs(lat - other.lat) < 1e-6

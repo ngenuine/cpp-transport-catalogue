@@ -3,9 +3,9 @@
 #include "geo.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <set>
-#include <variant>
 #include <unordered_map>
 
 using namespace std::literals;
@@ -13,9 +13,6 @@ using namespace std::string_view_literals;
 
 using BusName = std::string_view;
 using StopName = std::string_view;
-
-using Setting = std::variant<std::nullptr_t, double, int, std::pair<double, double>, std::vector<std::string>, std::string>;
-using RenderSettings = std::unordered_map<std::string, Setting>;
 
 struct Request {
     Request();
@@ -42,7 +39,7 @@ struct Route : public Request {
     Route(Route&& other);
     
     std::string from; // остановка может и не принадлежать ни одному маршруту
-    std::string to; // остановка может и не принадлежать ни одному маршруту
+    std::string to;   // остановка может и не принадлежать ни одному маршруту
 };
 
 struct Neighbours {
@@ -57,7 +54,6 @@ struct Distance {
 };
 
 struct Stop {
-    // stopname строка, потому что много откуда сюда будут смотреть вьюхи
     std::string stopname = ""s;
     geo::Coordinates location;
     size_t id = 0;
@@ -70,10 +66,10 @@ struct RawBus {
 };
 
 struct Bus {
-    // busname строка, т.к. нет нигде места, куда вьюхой можно было бы смотреть busname-ом
     std::string busname = ""s;
     bool is_cycle = false;
     std::vector<Stop*> stops;
+    size_t id = 0;
 };
 
 struct StopHasher {
@@ -95,8 +91,6 @@ struct PairSizetHasher {
 };
 
 struct BusInfo {
-    // в момент получения BusInfo справочник полностью готов;
-    // вьюха busname тут может смотреть на строку busname из дэка buses_;
     BusName busname = ""sv;
     int number_of_stops = 0;
     int number_of_unique_stops = 0;
@@ -106,8 +100,6 @@ struct BusInfo {
 };
 
 struct StopInfo {
-    // в момент получения StopInfo справочник полностью готов;
-    // вьюха stopname тут может смотреть на строку stopname из дэка stops_;
     StopName stopname;
     std::set<BusName>* buses_across_stop;
     bool is_exist = false;
@@ -118,23 +110,30 @@ struct RoutingSettings {
     int bus_velocity = 1000;
 };
 
-// struct RenderSettings {
-//   double width /* = 1200.0 */;
-//   double height /* = 1200.0 */;
+struct RenderSettings {
+    double width;
+    double height;
 
-//   double padding /* = 50.0 */;
+    double padding;
 
-//   double line_width /* = 14.0 */;
-//   double stop_radius /* = 5.0 */;
+    double line_width;
+    double stop_radius;
 
-//   int bus_label_font_size /* = 20 */;
-//   std::vector<double> bus_label_offset /* = {7.0, 15.0} */;
+    int bus_label_font_size;
+    std::pair<double, double> bus_label_offset;
 
-//   int stop_label_font_size /* = 20 */;
-//   std::vector<double> stop_label_offset /* = {7.0, -3.0} */;
+    int stop_label_font_size;
+    std::pair<double, double> stop_label_offset;
 
-//   std::string underlayer_color /* = "Rgba(255,255,255,0.85)"s */;
-//   double underlayer_width /* = 3.0 */;
+    std::string underlayer_color;
+    double underlayer_width;
 
-//   std::vector<std::string> color_palette /* = {"green", "Rgb(255,160,0)", "red"} */;
-// };
+    std::vector<std::string> color_palette;
+};
+
+struct ProjectorSettings {
+    double padding;
+    double min_lon;
+    double max_lat;
+    double zoom_coeff;
+};

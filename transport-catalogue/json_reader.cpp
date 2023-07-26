@@ -4,11 +4,12 @@
 #include <unordered_set>
 #include <sstream>
 #include <memory>
+#include <stdexcept>
 
 using namespace std::literals;
 using namespace std::string_view_literals;
 
-auto node_by_key = [](const json::Node& node, const std::string& key) {
+const auto& node_by_key = [](const json::Node& node, const std::string& key) {
     return node.AsDict().at(key);
 };
 
@@ -36,15 +37,20 @@ RoutingSettings JsonReader::GetRoutingSettings() const {
     return routing_settings_;
 }
 
-void JsonReader::LoadJSON(std::istream& input) {
+void JsonReader::MakeBase(std::istream& input) {
     json::Document json_document = json::Load(input);
 
+    // путь до файла, в который надо сериализовать базу данных справочника
+    const auto& serialization_settings = node_by_key(json_document.GetRoot(), "serialization_settings"s);
+    output_file_ = std::filesystem::path(serialization_settings.AsDict().at("file"s).AsString());
+
+    // заполнение базы транспортного каталога маршрутами и остановками
     const auto& base_requests = node_by_key(json_document.GetRoot(), "base_requests"s);
 
     for (const auto& request : base_requests.AsArray()) {
         const auto& query_type = node_by_key(request, "type"s);
 
-        // перенос каждый вид запроса на создание базы данных справочника в свою категорию
+        // перенос каждого вида запроса на создание базы данных справочника в свою категорию
         if (query_type.AsString() == "Bus"sv) {
             bus_requests_.push_back(ExtractBus(request));
         } else /* Stop */ {
@@ -60,6 +66,71 @@ void JsonReader::LoadJSON(std::istream& input) {
             }
         }
     }
+
+    // формирование мапы с настройками рендеринга
+    // цвет может быть задан как в rgb или в rgba формате,
+    // а также в виде конкретного названия цвета, а эта лямбда
+    // вернет строку, которую понимает svg
+    auto make_color = [](const json::Node& node) {
+        if (node.IsString()) {
+            return node.AsString();
+        }
+
+        std::stringstream color_code;
+        color_code << node.AsArray()[0].AsInt()
+            << ',' << node.AsArray()[1].AsInt()
+            << ',' << node.AsArray()[2].AsInt();
+
+        if (node.AsArray().size() == 3) {
+            return "rgb("s + color_code.str() + ")"s;
+        }
+
+        color_code << ',' << node.AsArray()[3].AsDouble();
+        return "rgba("s + color_code.str() + ")"s;
+    };
+
+    // формирование структуры с настройками рендеринга
+    const json::Node& render_settings = node_by_key(json_document.GetRoot(), "render_settings"s);
+
+    render_settings_.width = node_by_key(render_settings, "width"s).AsDouble();
+    render_settings_.height = node_by_key(render_settings, "height"s).AsDouble();
+    render_settings_.padding = node_by_key(render_settings, "padding"s).AsDouble();
+
+    auto stop_label_offset = node_by_key(render_settings, "stop_label_offset"s).AsArray();
+    render_settings_.stop_label_offset.first = stop_label_offset[0].AsDouble();
+    render_settings_.stop_label_offset.second = stop_label_offset[1].AsDouble();
+    render_settings_.stop_label_font_size = node_by_key(render_settings, "stop_label_font_size"s).AsDouble();
+    render_settings_.stop_radius = node_by_key(render_settings, "stop_radius"s).AsDouble();
+    
+    render_settings_.line_width = node_by_key(render_settings, "line_width"s).AsDouble();
+    
+    auto bus_label_offset = node_by_key(render_settings, "bus_label_offset"s).AsArray();
+    render_settings_.bus_label_offset.first = bus_label_offset[0].AsDouble();
+    render_settings_.bus_label_offset.second = bus_label_offset[1].AsDouble();
+    render_settings_.bus_label_font_size = node_by_key(render_settings, "bus_label_font_size"s).AsDouble();
+
+    render_settings_.underlayer_color = make_color(node_by_key(render_settings, "underlayer_color"s));
+    render_settings_.underlayer_width = node_by_key(render_settings, "underlayer_width"s).AsDouble();
+
+    const auto& color_palette = node_by_key(render_settings, "color_palette"s); // если сюда поставить .AsArray()
+    
+    for (const auto& color_node : color_palette.AsArray()) {                    // а убрать отсюда, то будет ub -- почему? 
+        render_settings_.color_palette.push_back(make_color(color_node));
+    }
+
+    // формирование настроек маршрутизатора: скорость автобуса и время ожидания на остановке
+    const auto& routing_settings = node_by_key(json_document.GetRoot(), "routing_settings"s);
+    
+    routing_settings_.bus_wait_time = routing_settings.AsDict().at("bus_wait_time"s).AsInt();
+    routing_settings_.bus_velocity = routing_settings.AsDict().at("bus_velocity"s).AsInt();
+}
+
+void JsonReader::MakeRequests(std::istream& input) {
+    json::Document json_document = json::Load(input);
+
+    // путь до файла, в котором сериализованная база данных справочника
+    const auto& serialization_settings = node_by_key(json_document.GetRoot(), "serialization_settings"s);
+    input_file_ = std::filesystem::path(serialization_settings.AsDict().at("file"s).AsString());
 
     // формирование вектора запросов к готовой базе справочника
     const auto& stat_requests = node_by_key(json_document.GetRoot(), "stat_requests"s);
@@ -83,66 +154,29 @@ void JsonReader::LoadJSON(std::istream& input) {
                                                                            name.AsString())));
         }
     }
+}
 
-    // формирование мапы с настройками рендеринга
-    const auto& render_settings = node_by_key(json_document.GetRoot(), "render_settings"s);
-
-    std::unordered_set<std::string> as_double{"width"s, "height"s, "padding"s, "line_width"s, "stop_radius"s, "underlayer_width"s};
-    std::unordered_set<std::string> as_int{"bus_label_font_size"s, "stop_label_font_size"s};
-    std::unordered_set<std::string> as_pair_double{"bus_label_offset"s, "stop_label_offset"s};
-    std::unordered_set<std::string> as_vector_string{"color_palette"s};
-    std::unordered_set<std::string> as_string{"underlayer_color"s};
-
-    auto make_color = [](const json::Node& node) {
-        if (node.IsString()) {
-            return node.AsString();
-        }
-
-        std::stringstream color_code;
-        color_code << node.AsArray()[0].AsInt()
-        << ',' << node.AsArray()[1].AsInt()
-        << ',' << node.AsArray()[2].AsInt();
-
-        if (node.AsArray().size() == 3) {
-            return "rgb("s + color_code.str() + ")"s;
-        }
-
-        color_code << ',' << node.AsArray()[3].AsDouble();
-        return "rgba("s + color_code.str() + ")"s;
-    };
-
-    for (const auto& [setting, value] : render_settings.AsDict()) {
-        if (as_double.count(setting) == 1) {
-            render_settings_.insert({setting, value.AsDouble()});
-        } else if (as_int.count(setting) == 1) {
-            render_settings_.insert({setting, value.AsInt()});
-        } else if (as_pair_double.count(setting) == 1) {
-            std::pair<double, double> offsets;
-            offsets.first = value.AsArray()[0].AsDouble();
-            offsets.second = value.AsArray()[1].AsDouble();
-
-            render_settings_.insert({setting, offsets});
-        } else if (as_vector_string.count(setting) == 1) {
-            std::vector<std::string> color_palette;
-
-            for (const auto& node : value.AsArray()) {
-                color_palette.push_back(make_color(node));
-            }        
-
-            render_settings_.insert({setting, color_palette});
-
-        } else if (as_string.count(setting) == 1) {
-            std::string color = make_color(value);
-            render_settings_.insert({setting, color});
-        } else {
-            throw std::logic_error("Unknown setting: "s + "\""s + setting + "\""s + " at render settings section");
-        }
+void JsonReader::LoadJSON(std::istream& input, ReadMode read_mode) {
+    /* загрузка json в одном из режимов: парсинг запросов для формирования
+    базы данных справочника или парсинг запросов к сформированной базе данных справочника */
+    switch (read_mode)
+    {
+    case ReadMode::MAKE_BASE:
+        MakeBase(input);
+        break;
+    case ReadMode::PROCESS_REQUEST:
+        MakeRequests(input);
+        break;
+    default:
+        throw std::runtime_error("Error mode: MAKE_BASE and PROCESS_REQUEST are allowed"s);
     }
+}
 
-    const auto& routing_settings = node_by_key(json_document.GetRoot(), "routing_settings"s);
-    
-    routing_settings_.bus_wait_time = routing_settings.AsDict().at("bus_wait_time"s).AsInt();
-    routing_settings_.bus_velocity = routing_settings.AsDict().at("bus_velocity"s).AsInt();
+std::filesystem::path JsonReader::GetOutputFilepath() {
+    return output_file_;
+}
+std::filesystem::path JsonReader::GetInputFilepath() {
+    return input_file_;
 }
 
 RawBus JsonReader::ExtractBus(const json::Node& node) {

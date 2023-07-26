@@ -4,9 +4,17 @@
 
 #include <cassert>
 
-RequestHandler::RequestHandler(const JsonReader& parsed_json)
+RequestHandler::RequestHandler(const JsonReader& parsed_json, TransportData& transport_data, ReadMode mode)
     : parsed_json_(parsed_json)
+    , db_(transport_data.t_cat)
+    , renderer_(transport_data.m_rend)
+    , transport_router_(transport_data.t_route)
     {
+        if (mode == ReadMode::MAKE_BASE) {
+            BuildTransportDatabase();
+            BuildMapRenderer();
+            BuildTransportRouter();
+        }
     }
 
 void RequestHandler::BuildTransportDatabase() {
@@ -116,7 +124,6 @@ void RequestHandler::SolveStatRequests() {
         } else if (request_ptr->type == "Route"sv) {
 
             Route* route = static_cast<Route*>(request_ptr.get());
-
             std::optional<graph::Router<double>::RouteInfo> builded_route = transport_router_->BuildRouteBetweenStops(route->from, route->to);
             
             if (builded_route) {
@@ -133,7 +140,7 @@ void RequestHandler::SolveStatRequests() {
                     json::Array items;
 
                     for (const auto edge_id : builded_route.value().edges) {
-                        const graph::Edge<double>& edge = transport_router_->GetEdge(edge_id);
+                        const graph::Edge<double>& edge = transport_router_->GetGraph().GetEdge(edge_id);
                         if (edge.span == 0) {
                             items.push_back(
                                 json::Builder{}
@@ -179,6 +186,7 @@ void RequestHandler::SolveStatRequests() {
 }
 
 void RequestHandler::RenderMap(std::ostream& out) {
+    
     renderer_.CreateMap(db_.GetAllBuses(), db_.GetUsefulStopCoordinates());
     renderer_.GetMap().Render(out);
 }

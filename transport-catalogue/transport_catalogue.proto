@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package pb_msg;
+
+import "map_renderer.proto";
+import "transport_router.proto";
+
+message Coordinates {
+    double lat = 1;
+    double lng = 2;
+}
+
+message Stop {
+    Coordinates location = 1;
+    uint64 unique_stop_id = 2; // аналог имени
+}
+
+message Bus {
+    bool is_cycle = 1;
+    repeated uint64 stop_ids = 2;
+    uint64 unique_bus_id = 3; // аналог имени
+}
+
+message Distance {
+    uint64 from = 1;
+    uint64 to = 2;
+    uint64 curved_distance = 3;
+}
+
+message TransportCatalogue {
+    repeated Stop stop = 1;
+    repeated Bus bus = 2;
+    repeated Distance distance = 3;
+    
+    // {id остановки : имя остановки}
+    map<uint64, string> id_to_stopname = 4;
+
+    // {id остановки : имя автобуса}
+    map<uint64, string> id_to_busname = 5;
+
+    RenderSettings render_settings = 6;
+    ProjectorSettings projector = 7;
+
+    TransportRouter transport_router = 8;
+}
+
+// <путь к пакету Protobuf>/bin/protoc --cpp_out . transport_catalogue.proto

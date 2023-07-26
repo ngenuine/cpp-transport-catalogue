@@ -19,7 +19,9 @@ bool IsZero(double value);
 class SphereProjector {
 public:
     SphereProjector();
-    // points_begin и points_end задают начало и конец интервала элементов geo::Coordinates
+
+    // points_begin и points_end задают начало и конец интервала элементов geo::Coordinates,
+    // которые хранятся в виде мапы std::map<StopName, geo::Coordinates>
     template <typename PointInputIt>
     void Configure(PointInputIt points_begin, PointInputIt points_end,
                     double max_width, double max_height, double padding)
@@ -31,7 +33,7 @@ public:
             return;
         }
 
-        // возьму только точки из итераторов на мапу
+        // возьму только точки из итераторов
         std::vector<geo::Coordinates> points;
         for (auto it = points_begin; it != points_end; ++it) {
             points.push_back(it->second);
@@ -76,7 +78,11 @@ public:
         }
     }
 
-    // проецирует широту и долготу в координаты внутри SVG-изображения
+    void Configure(const ProjectorSettings& settings);
+    ProjectorSettings GetSettings() const;
+
+    // переводит широту и долготу (координаты на сфере) в координаты
+    // внутри SVG-изображения (координаты на плоскости)
     svg::Point operator()(geo::Coordinates coords) const;
 
 private:
@@ -91,9 +97,13 @@ public:
     MapRenderer();
     void ConfigureMapRenderer(const RenderSettings& render_settings,
                               const std::map<StopName, geo::Coordinates>& points_limits);
+    void ConfigureMapRenderer(const RenderSettings& render_settings, ProjectorSettings projector_settings);
     
     void CreateMap(const std::map<BusName, Bus*>& all_buses,
                    const std::map<StopName, geo::Coordinates>& useful_stops);
+
+    const RenderSettings& GetRenderSettings() const;
+    ProjectorSettings GetProjectorSettings() const;
     
     const svg::Document& GetMap();
 private:

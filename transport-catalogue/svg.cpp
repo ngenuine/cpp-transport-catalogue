@@ -1,4 +1,5 @@
 #include "svg.h"
+
 #include <cmath>
 
 namespace svg {

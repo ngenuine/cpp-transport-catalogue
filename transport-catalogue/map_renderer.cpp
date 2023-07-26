@@ -10,6 +10,18 @@ bool IsZero(double value) {
 }
 
 SphereProjector::SphereProjector() = default;
+
+void SphereProjector::Configure(const ProjectorSettings& settings) {
+    padding_ = settings.padding;
+    min_lon_ = settings.min_lon;
+    max_lat_ = settings.max_lat;
+    zoom_coeff_ = settings.zoom_coeff;
+}
+
+ProjectorSettings SphereProjector::GetSettings() const {
+    return {padding_, min_lon_, max_lat_, zoom_coeff_};
+}
+
 svg::Point SphereProjector::operator()(geo::Coordinates coords) const {
     return {
         (coords.lng - min_lon_) * zoom_coeff_ + padding_,
@@ -23,10 +35,15 @@ void MapRenderer::ConfigureMapRenderer(const RenderSettings& render_settings,
                                        const std::map<StopName, geo::Coordinates>& points_limits) {
     render_settings_ = render_settings;
 
-    const double width = std::get<double>(render_settings.at("width"s));
-    const double height = std::get<double>(render_settings.at("height"s));
-    const double padding = std::get<double>(render_settings.at("padding"s));
+    const double width = render_settings.width;
+    const double height = render_settings.height;
+    const double padding = render_settings.padding;
     projector_.Configure(points_limits.begin(), points_limits.end(), width, height, padding);
+}
+
+void MapRenderer::ConfigureMapRenderer(const RenderSettings& render_settings, ProjectorSettings projector_settings) {
+    render_settings_ = render_settings;
+    projector_.Configure(projector_settings);
 }
 
 void MapRenderer::CreateMap(const std::map<BusName, Bus*>& all_buses,
@@ -37,17 +54,25 @@ void MapRenderer::CreateMap(const std::map<BusName, Bus*>& all_buses,
     DrawStopNamesLay(useful_stops);
 }
 
+const RenderSettings& MapRenderer::GetRenderSettings() const {
+    return render_settings_;
+}
+
+ProjectorSettings MapRenderer::GetProjectorSettings() const {
+    return projector_.GetSettings();
+}
+
 const svg::Document& MapRenderer::GetMap() {
     return svg_document_;
 }
 
 void MapRenderer::DrawBusesLay(const std::map<BusName, Bus*>& all_buses) {
-    auto& color_palette = std::get<std::vector<std::string>>(render_settings_.at("color_palette"s));
+    auto& color_palette = render_settings_.color_palette;
 
     // настройка свойств полилиний маршрутов
     svg::Polyline base_bus_path;
     base_bus_path
-        .SetStrokeWidth(std::get<double>(render_settings_.at("line_width"s)))
+        .SetStrokeWidth(render_settings_.line_width)
         .SetStrokeLineCap(svg::StrokeLineCap::ROUND)
         .SetStrokeLineJoin(svg::StrokeLineJoin::ROUND)
         .SetFillColor(svg::NoneColor);
@@ -82,20 +107,20 @@ void MapRenderer::DrawBusesLay(const std::map<BusName, Bus*>& all_buses) {
 }
 
 void MapRenderer::DrawBusNamesLay(const std::map<BusName, Bus*>& all_buses) {
-    auto& color_palette = std::get<std::vector<std::string>>(render_settings_.at("color_palette"s));
+    auto& color_palette = render_settings_.color_palette;
 
     // настройка свойств текста для подписи маршрутов
-    auto [b_dx, b_dy] = std::get<std::pair<double, double>>(render_settings_.at("bus_label_offset"s));
+    auto [b_dx, b_dy] = render_settings_.bus_label_offset;
     svg::Text base_bus_text;
     base_bus_text
         .SetOffset({b_dx, b_dy})
-        .SetFontSize(std::get<int>(render_settings_.at("bus_label_font_size"s)))
+        .SetFontSize(render_settings_.bus_label_font_size)
         .SetFontFamily("Verdana"s)
         .SetFontWeight("bold"s);
 
     // настройка свойств подложки для подписи маршрутов
-    std::string underlayer_color = std::get<std::string>(render_settings_.at("underlayer_color"s));
-    double underlayer_width = std::get<double>(render_settings_.at("underlayer_width"s));
+    std::string underlayer_color = render_settings_.underlayer_color;
+    double underlayer_width = render_settings_.underlayer_width;
     
     svg::Text base_underlayer_bus_text{base_bus_text};
     base_underlayer_bus_text
@@ -150,7 +175,7 @@ void MapRenderer::DrawStopsLay(const std::map<StopName, geo::Coordinates>& usefu
     // настройка свойств окружностей остановок
     svg::Circle base_stop_symbol;
     base_stop_symbol
-        .SetRadius(std::get<double>(render_settings_.at("stop_radius"s)))
+        .SetRadius(render_settings_.stop_radius)
         .SetFillColor("white");
     
     // добавляем в документ точки остановок
@@ -164,14 +189,14 @@ void MapRenderer::DrawStopsLay(const std::map<StopName, geo::Coordinates>& usefu
 
 void MapRenderer::DrawStopNamesLay(const std::map<StopName, geo::Coordinates>& useful_stops) {
     // настройка свойств текста для подписи остановок
-    std::string underlayer_color = std::get<std::string>(render_settings_.at("underlayer_color"s));
-    double underlayer_width = std::get<double>(render_settings_.at("underlayer_width"s));
+    std::string underlayer_color = render_settings_.underlayer_color;
+    double underlayer_width = render_settings_.underlayer_width;
     
-    auto [st_dx, st_dy] = std::get<std::pair<double, double>>(render_settings_.at("stop_label_offset"s));
+    auto [st_dx, st_dy] = render_settings_.stop_label_offset;
     svg::Text base_stop_text;
     base_stop_text
         .SetOffset({st_dx, st_dy})
-        .SetFontSize(std::get<int>(render_settings_.at("stop_label_font_size"s)))
+        .SetFontSize(render_settings_.stop_label_font_size)
         .SetFontFamily("Verdana"s);
 
     // настройка свойств подложки для подписи остановок
